@@ -254,11 +254,23 @@ function App() {
   useEffect(() => {
     if (!analysis || !activeFile || !previewCanvasRef.current) return;
     let cancelled = false;
+    const targetCanvas = previewCanvasRef.current;
+    const stagingCanvas = document.createElement('canvas');
     setPreviewError('');
+    setPreviewSize(null);
+
     import('@formflow/pdf-engine').then(({ renderPdfPage }) =>
-      renderPdfPage(activeFile, currentPage, previewCanvasRef.current as HTMLCanvasElement)
+      renderPdfPage(activeFile, currentPage, stagingCanvas)
     ).then((size) => {
-      if (!cancelled) setPreviewSize(size);
+      // Render each page off-screen so overlapping page requests cannot paint
+      // over one another. Only the most recent effect may commit its result.
+      if (cancelled) return;
+      targetCanvas.width = stagingCanvas.width;
+      targetCanvas.height = stagingCanvas.height;
+      const context = targetCanvas.getContext('2d');
+      if (!context) throw new Error('Canvas rendering is not available.');
+      context.drawImage(stagingCanvas, 0, 0);
+      setPreviewSize(size);
     }).catch((cause) => {
       console.error('PDF preview failed.', cause);
       if (!cancelled) setPreviewError(t.previewError);
