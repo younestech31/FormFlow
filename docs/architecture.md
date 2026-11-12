@@ -18,8 +18,8 @@
 3. Analyze vector drawing operations (rules, rectangles and checkbox-like shapes).
 4. Associate nearby labels and candidate writing areas with deterministic spatial rules.
 5. Show suggestions with method and confidence; never silently confirm a candidate.
-6. Let the user add, rename, move, resize, change or remove fields.
-7. Save a reusable template locally, fill values and export the PDF.
+6. On the first-page preview, let the user add, rename, move, resize, change type, or remove candidate fields. The current editor is an in-memory review surface.
+7. Next, save the edited geometry in a reusable local template, fill values and export the PDF.
 
 No OCR is included. Scanned-image text must be entered manually unless a non-OCR approach is later agreed.
 

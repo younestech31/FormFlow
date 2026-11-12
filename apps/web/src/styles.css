@@ -66,3 +66,24 @@ h1 { font-size: clamp(36px, 5vw, 58px); line-height: 1.22; letter-spacing: -.04e
 .pdf-preview { position: relative; width: min(100%, 760px); margin: 0 auto; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 4px 18px rgba(31,44,76,.06); }
 .pdf-preview canvas { display: block; width: 100%; height: auto; }
 .preview-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.field-editor { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+.field-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.field-editor-heading h4 { margin: 0; font-size: 13px; }
+.field-editor-hint { margin: 8px 0 12px; color: var(--muted); font-size: 11px; }
+.field-editor-list { display: grid; gap: 8px; }
+.field-editor-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(140px, .8fr) auto; align-items: end; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface, #fff); }
+.field-editor-row.is-selected { border-color: #3859d6; box-shadow: 0 0 0 2px rgba(56,89,214,.08); }
+.field-editor-row label { display: grid; gap: 5px; min-width: 0; }
+.field-editor-row label span { color: var(--muted); font-size: 10px; }
+.field-editor-row input, .field-editor-row select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 36px; border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; color: var(--text); background: var(--background, #fff); font: inherit; font-size: 12px; }
+.field-editor-row input:focus, .field-editor-row select:focus { outline: 2px solid rgba(56,89,214,.25); border-color: #3859d6; }
+.danger-button { color: #a63b3b; border-color: rgba(166,59,59,.25); white-space: nowrap; }
+.empty-editor { margin: 0; padding: 16px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; font-size: 12px; text-align: center; }
+.editable-field-shape { cursor: move; touch-action: none; }
+.preview-overlay { pointer-events: auto; touch-action: none; }
+.resize-handle { cursor: nwse-resize; }
+.field-overlay-label { fill: #263b78; font-size: 10px; pointer-events: none; }
+@media (max-width: 680px) {
+  .field-editor-row { grid-template-columns: 1fr; }
+}

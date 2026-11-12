@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectGeometryFields, detectLabelAnchors } from '../src/detection.ts';
+import { clampFieldRectangle, detectGeometryFields, detectLabelAnchors } from '../src/detection.ts';
 
 const page = { pageNumber: 1, pageWidth: 600, pageHeight: 800 };
 const shapes = [
@@ -41,4 +41,11 @@ test('ignores page frames and non-horizontal decorative lines', () => {
     { ...page, id: 'vertical', kind: 'line', x: 50, y: 100, width: 0, height: 140, closed: false }
   ];
   assert.equal(detectGeometryFields(noise).length, 0);
+});
+
+test('clamps dragged and resized fields to the page boundaries', () => {
+  assert.deepEqual(
+    clampFieldRectangle({ x: -20, y: 790, width: 240, height: 30 }, { width: 600, height: 800 }),
+    { x: 0, y: 770, width: 240, height: 30 }
+  );
 });

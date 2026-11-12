@@ -11,7 +11,7 @@
 
 ## Milestone 1 — document workspace
 - [x] In-app first-page PDF preview with detected-candidate overlays.
-- [ ] Page navigation and zoom controls.
+- [ ] Page navigation and zoom controls (the current preview/editor is limited to page one).
 - [ ] Drag/drop and native file picker adapters.
 - [ ] Recent documents and local metadata management.
 
@@ -19,9 +19,9 @@
 - [x] First-pass inspection of PDF vector paths; detect axis-aligned rectangles, small checkbox-like squares, and long horizontal rules.
 - [x] Basic spatial association of extracted digital text labels with nearby geometric candidates.
 - [ ] Improve spatial association for multi-column, rotated, and complex layouts. (Basic RTL left/right association is implemented.)
-- [ ] Visual overlay editor to add/move/resize/rename/delete fields.
-- [ ] Text, multiline, checkbox, radio, date and select field types.
-- [ ] Manual corrections saved in reusable templates.
+- [x] First-page overlay editor: manually add, move, resize, relabel, change type, and delete candidate fields.
+- [x] Editable field type choices: text, multiline, checkbox, radio, date, select, and signature.
+- [ ] Save manual corrections in reusable local templates.
 
 ## Milestone 3 — fill and export
 - [ ] Fill native AcroForm fields and custom overlay fields.

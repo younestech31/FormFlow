@@ -15,11 +15,11 @@ An offline-first workspace for inspecting, preparing, and filling reusable forms
 - PWA manifest and application-shell service worker.
 - Vercel monorepo build configuration.
 
-This is a foundation, not a complete form editor. Visual PDF rendering, vector geometry detection, drag/resize editing, custom-field overlay, template UI, and finished export workflows are planned milestones.
+This is an early foundation, not yet a complete form editor. The web app can preview the first PDF page and lets users review detected candidates, add a field manually, edit its label and type, drag it, resize it, or delete it. Multi-page editing, locally saved field templates, filling custom overlay fields, and finished PDF export workflows remain planned.
 
 ## Important limitation
 
-Text extraction works for text-based PDFs. The inspection engine also reads PDF drawing paths and proposes likely checkboxes, rectangular fields, and long underline fields using geometry rules. These are heuristic suggestions and can mistake table cells or decorative shapes for fields. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; geometric hints may still be found only when the scan's PDF wrapper contains separate vector objects, otherwise fields must be added manually.
+Text extraction works for text-based PDFs. The inspection engine also reads PDF drawing paths and proposes likely checkboxes, rectangular fields, and long underline fields using geometry rules. These are heuristic suggestions and can mistake table cells or decorative shapes for fields. The current visual preview and editor cover page one; multi-page navigation is not implemented yet. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; geometric hints may be found only when the scan's PDF wrapper contains separate vector objects, otherwise fields must be added manually.
 
 ## Requirements
 
