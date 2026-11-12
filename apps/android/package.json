@@ -1,0 +1,6 @@
+{
+  "name": "@formflow/android-shell", "private": true, "version": "0.1.0", "type": "module",
+  "scripts": { "sync": "cap sync android", "open": "cap open android", "add:android": "cap add android" },
+  "dependencies": { "@capacitor/core": "^7.4.2" },
+  "devDependencies": { "@capacitor/android": "^7.4.2", "@capacitor/cli": "^7.4.2" }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "formflow"
+version = "0.1.0"
+description = "Offline-first form workspace"
+authors = ["FormFlow contributors"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

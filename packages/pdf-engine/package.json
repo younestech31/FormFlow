@@ -1,0 +1,5 @@
+{
+  "name": "@formflow/pdf-engine", "private": true, "version": "0.1.0", "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "pdfjs-dist": "^5.3.31", "pdf-lib": "^1.17.1" }
+}

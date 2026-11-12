@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+.cache/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+.vercel/
+*.log
+apps/desktop/src-tauri/target/
+apps/android/android/
+apps/android/ios/

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FormFlow", "version": "0.1.0", "identifier": "org.formflow.app",
+  "build": {
+    "beforeDevCommand": "cd ../.. && npm run dev --workspace @formflow/web",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "cd ../.. && npm run build --workspace @formflow/web",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "windows": [{ "title": "FormFlow", "width": 1280, "height": 850, "minWidth": 760, "minHeight": 600 }],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'"
+    }
+  },
+  "bundle": { "active": true, "targets": "all" }
+}

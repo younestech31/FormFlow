@@ -1,0 +1,14 @@
+{
+  "name": "formflow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Offline-first, open-source form filling workspace",
+  "workspaces": ["apps/web", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @formflow/web",
+    "build": "npm run build --workspace @formflow/web",
+    "preview": "npm run preview --workspace @formflow/web",
+    "typecheck": "npm run typecheck --workspace @formflow/web"
+  },
+  "engines": { "node": ">=22.12.0" }
+}
