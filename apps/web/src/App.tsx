@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { detectLabelAnchors } from '@formflow/core';
-import { inspectPdf, type PdfInspection } from '@formflow/pdf-engine';
+import type { PdfInspection } from '@formflow/pdf-engine';
 
 type Language = 'ar' | 'fr' | 'en';
 const messages = {
@@ -90,7 +90,7 @@ function App() {
       setError(t.error); return;
     }
     setBusy(true);
-    try { setAnalysis(await inspectPdf(file)); }
+    try { const { inspectPdf } = await import('@formflow/pdf-engine'); setAnalysis(await inspectPdf(file)); }
     catch (cause) { console.error('PDF inspection failed.', cause); setError(t.error); }
     finally { setBusy(false); }
   }
