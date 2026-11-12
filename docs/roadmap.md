@@ -10,13 +10,15 @@
 - [x] PWA shell and Vercel deployment config.
 
 ## Milestone 1 — document workspace
-- [ ] In-app PDF page preview and page navigation.
+- [x] In-app first-page PDF preview with detected-candidate overlays.
+- [ ] Page navigation and zoom controls.
 - [ ] Drag/drop and native file picker adapters.
 - [ ] Recent documents and local metadata management.
 
 ## Milestone 2 — recognition and editor
-- [ ] Inspect PDF vector paths, rules, rectangles and checkbox candidates.
-- [ ] Spatial association between labels and blank fields.
+- [x] First-pass inspection of PDF vector paths; detect axis-aligned rectangles, small checkbox-like squares, and long horizontal rules.
+- [x] Basic spatial association of extracted digital text labels with nearby geometric candidates.
+- [ ] Improve spatial association for multi-column, rotated, and complex layouts. (Basic RTL left/right association is implemented.)
 - [ ] Visual overlay editor to add/move/resize/rename/delete fields.
 - [ ] Text, multiline, checkbox, radio, date and select field types.
 - [ ] Manual corrections saved in reusable templates.
@@ -35,3 +37,7 @@
 
 ## Explicit non-goals
 AI/ML recognition, OCR, paid APIs, subscriptions, mandatory accounts, and cloud document storage.
+
+## Geometry detection scope
+
+The first vector pass consumes PDF.js operator lists and recognizes simple, axis-aligned closed rectangles and long horizontal paths. It proposes square checkbox candidates and rectangular/underline text-field candidates, and may attach a nearby extractable PDF text fragment as a label. It does not recognize arbitrary artwork, rotated/curved boxes, or text embedded in scanned images. Suggestions can be false positives (for example, table cells) and are not confirmed fields until reviewed by the user.

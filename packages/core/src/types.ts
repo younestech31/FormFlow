@@ -5,6 +5,11 @@ export interface TextFragment {
   id: string; text: string; pageNumber: number; pageWidth: number; pageHeight: number;
   x: number; y: number; width: number; height: number;
 }
+export interface VectorShape {
+  id: string; pageNumber: number; kind: 'rectangle' | 'line';
+  x: number; y: number; width: number; height: number;
+  pageWidth: number; pageHeight: number; closed: boolean;
+}
 export interface FieldCandidate {
   id: string; label: string; kind: FieldKind; pageNumber: number;
   x: number; y: number; width: number; height: number;

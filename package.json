@@ -3,12 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "description": "Offline-first, open-source form filling workspace",
-  "workspaces": ["apps/web", "packages/*"],
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace @formflow/web",
     "build": "npm run build --workspace @formflow/web",
     "preview": "npm run preview --workspace @formflow/web",
-    "typecheck": "npm run typecheck --workspace @formflow/web"
+    "typecheck": "npm run typecheck --workspace @formflow/web",
+    "test": "node --experimental-strip-types --test packages/core/test/*.test.mjs packages/pdf-engine/test/*.test.mjs"
   },
-  "engines": { "node": "26.x" }
+  "engines": {
+    "node": "26.x"
+  }
 }

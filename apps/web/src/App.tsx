@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { detectLabelAnchors } from '@formflow/core';
 import type { PdfInspection } from '@formflow/pdf-engine';
 
@@ -6,20 +6,20 @@ type Language = 'ar' | 'fr' | 'en';
 const messages = {
   ar: {
     eyebrow: 'مساحة عمل محلية للمستندات', title: 'استماراتك، في مكان واحد.',
-    intro: 'افحص ملفات PDF وراجع الحقول الموجودة دون رفع مستنداتك إلى خادم.',
+    intro: 'افحص النصوص والحقول والأشكال الهندسية داخل ملفات PDF محليًا، دون رفع مستنداتك إلى خادم.',
     importTitle: 'ابدأ بمستند PDF', importHint: 'اختر ملفًا من جهازك. تتم القراءة محليًا.',
     choose: 'اختيار ملف PDF', privacy: 'ملفاتك تبقى على جهازك', local: 'معالجة محلية',
-    offline: 'مصمم للعمل دون اتصال بعد التحميل', noAi: 'بلا ذكاء اصطناعي أو OCR',
+    offline: 'مصمم للعمل دون اتصال بعد التحميل', noAi: 'قواعد هندسية دون AI أو OCR',
     features: 'ما الذي يجهزه FormFlow؟', featureOne: 'فحص حقول PDF الأصلية',
     featureOneText: 'قراءة الحقول التفاعلية الموجودة أصلًا داخل الملف.',
     featureTwo: 'اقتراحات قابلة للمراجعة',
-    featureTwoText: 'استخراج النصوص ومواقعها واقتراح مواضع أولية للعناوين المنتهية بنقطتين.',
+    featureTwoText: 'استخراج النصوص ومواقعها، ورصد المستطيلات والخطوط التي قد تمثل خانات فارغة.',
     featureThree: 'إضافة يدوية دقيقة',
     featureThreeText: 'المحرر البصري قيد التطوير لإضافة الحقول وتحريكها وتغيير أحجامها.',
     report: 'نتيجة الفحص المحلي', pages: 'الصفحات', textItems: 'مقاطع النص',
-    existing: 'حقول PDF الأصلية', suggestions: 'اقتراحات أولية',
+    existing: 'حقول PDF الأصلية', suggestions: 'اقتراحات أولية', geometryCount: 'خانات هندسية', geometryField: 'خانة مستطيلة', geometryCheckbox: 'مربع اختيار', previewTitle: 'معاينة الصفحة الأولى', previewInfo: 'الإطارات الزرقاء تمثل مواضع مقترحة للمراجعة.', previewError: 'تعذرت معاينة الصفحة في هذا الملف.',
     caveat: 'الاقتراحات أولية وليست حقولًا مؤكدة. راجعها قبل استخدامها.',
-    noText: 'لم يُعثر على نص قابل للاستخراج. قد يكون الملف ممسوحًا ضوئيًا؛ لا يستخدم FormFlow OCR.',
+    noText: 'لم يُعثر على نص قابل للاستخراج. قد يكون الملف صورة ممسوحة؛ يمكن رصد بعض أشكاله الهندسية، لكن لا يمكن قراءة تسمياتها دون OCR.',
     scanning: 'جارٍ فحص الملف محليًا...', selectAnother: 'اختيار ملف آخر',
     footer: 'FormFlow مشروع مفتوح المصدر قيد التأسيس',
     error: 'تعذر قراءة الملف. تحقق من أنه PDF صالح وغير محمي بكلمة مرور.',
@@ -28,20 +28,20 @@ const messages = {
   },
   fr: {
     eyebrow: 'Espace documentaire local', title: 'Vos formulaires, au même endroit.',
-    intro: 'Inspectez les PDF et leurs champs sans envoyer vos documents vers un serveur.',
+    intro: 'Inspectez localement le texte, les champs et les formes géométriques des PDF, sans envoyer vos documents vers un serveur.',
     importTitle: 'Commencer avec un PDF', importHint: 'Choisissez un fichier. Le traitement est local.',
     choose: 'Choisir un PDF', privacy: 'Vos fichiers restent sur votre appareil', local: 'Traitement local',
-    offline: 'Conçu pour fonctionner hors ligne après chargement', noAi: 'Sans IA ni OCR',
+    offline: 'Conçu pour fonctionner hors ligne après chargement', noAi: 'Règles géométriques, sans IA ni OCR',
     features: 'Ce que prépare FormFlow', featureOne: 'Champs PDF existants',
     featureOneText: 'Lecture des champs interactifs déjà présents dans le document.',
     featureTwo: 'Suggestions vérifiables',
-    featureTwoText: 'Extraction du texte et de ses positions, puis suggestions préliminaires.',
+    featureTwoText: 'Extraction du texte et détection des rectangles et lignes pouvant représenter des champs vides.',
     featureThree: 'Ajout manuel précis',
     featureThreeText: 'L’éditeur visuel est en cours de développement.',
     report: 'Résultat de l’inspection locale', pages: 'Pages', textItems: 'Fragments de texte',
-    existing: 'Champs PDF existants', suggestions: 'Suggestions initiales',
+    existing: 'Champs PDF existants', suggestions: 'Suggestions initiales', geometryCount: 'Champs géométriques', geometryField: 'Champ rectangulaire', geometryCheckbox: 'Case à cocher', previewTitle: 'Aperçu de la première page', previewInfo: 'Les cadres bleus indiquent des emplacements proposés à vérifier.', previewError: 'Impossible de prévisualiser cette page.',
     caveat: 'Les suggestions sont heuristiques et doivent être vérifiées.',
-    noText: 'Aucun texte extractible. Le fichier peut être un scan ; aucun OCR n’est utilisé.',
+    noText: 'Aucun texte extractible. Le fichier peut être un scan ; certaines formes peuvent être détectées, mais leurs libellés ne peuvent pas être lus sans OCR.',
     scanning: 'Inspection locale en cours…', selectAnother: 'Choisir un autre fichier',
     footer: 'FormFlow — fondation en cours de construction',
     error: 'Impossible de lire le PDF. Vérifiez le fichier et son éventuel mot de passe.',
@@ -50,20 +50,20 @@ const messages = {
   },
   en: {
     eyebrow: 'Local document workspace', title: 'Your forms, in one place.',
-    intro: 'Inspect PDFs and existing fields without uploading documents to a server.',
+    intro: 'Inspect PDF text, fields, and geometric shapes locally without uploading documents to a server.',
     importTitle: 'Start with a PDF', importHint: 'Choose a file. Processing happens locally.',
     choose: 'Choose PDF', privacy: 'Your files stay on your device', local: 'Local processing',
-    offline: 'Designed to work offline after loading', noAi: 'No AI or OCR',
+    offline: 'Designed to work offline after loading', noAi: 'Geometry rules, no AI or OCR',
     features: 'What FormFlow is building', featureOne: 'Existing PDF fields',
     featureOneText: 'Read interactive fields already embedded in a document.',
     featureTwo: 'Reviewable suggestions',
-    featureTwoText: 'Extract text and positions, then suggest conservative label anchors.',
+    featureTwoText: 'Extract text and detect rectangles and lines that may represent blank form fields.',
     featureThree: 'Precise manual editing',
     featureThreeText: 'The visual field editor is under development.',
     report: 'Local inspection result', pages: 'Pages', textItems: 'Text fragments',
-    existing: 'Existing PDF fields', suggestions: 'Initial suggestions',
+    existing: 'Existing PDF fields', suggestions: 'Initial suggestions', geometryCount: 'Geometric fields', geometryField: 'Rectangular field', geometryCheckbox: 'Checkbox', previewTitle: 'First-page preview', previewInfo: 'Blue outlines show suggested areas to review.', previewError: 'This page could not be previewed.',
     caveat: 'Suggestions are heuristic and must be reviewed before use.',
-    noText: 'No extractable text was found. This may be a scan; FormFlow does not use OCR.',
+    noText: 'No extractable text was found. This may be a scan; some geometric shapes may still be detected, but their labels cannot be read without OCR.',
     scanning: 'Inspecting locally…', selectAnother: 'Choose another file',
     footer: 'FormFlow — project foundation',
     error: 'The PDF could not be read. Check that it is valid and not password-protected.',
@@ -78,25 +78,55 @@ function App() {
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState<PdfInspection | null>(null);
   const [fileName, setFileName] = useState('');
+  const [activeFile, setActiveFile] = useState<File | null>(null);
+  const [previewSize, setPreviewSize] = useState<{ width: number; height: number } | null>(null);
+  const [previewError, setPreviewError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const t = messages[language];
   const direction = language === 'ar' ? 'rtl' : 'ltr';
 
   async function handleFile(file?: File) {
     if (!file) return;
-    setError(''); setAnalysis(null); setFileName(file.name);
+    setError(''); setAnalysis(null); setFileName(file.name); setActiveFile(null); setPreviewSize(null); setPreviewError('');
     if (file.size > 100 * 1024 * 1024) { setError(t.sizeError); return; }
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       setError(t.error); return;
     }
+    setActiveFile(file);
     setBusy(true);
     try { const { inspectPdf } = await import('@formflow/pdf-engine'); setAnalysis(await inspectPdf(file)); }
     catch (cause) { console.error('PDF inspection failed.', cause); setError(t.error); }
     finally { setBusy(false); }
   }
 
+  useEffect(() => {
+    if (!analysis || !activeFile || !previewCanvasRef.current) return;
+    let cancelled = false;
+    setPreviewError('');
+    import('@formflow/pdf-engine').then(({ renderPdfPage }) =>
+      renderPdfPage(activeFile, 1, previewCanvasRef.current as HTMLCanvasElement)
+    ).then((size) => {
+      if (!cancelled) setPreviewSize(size);
+    }).catch((cause) => {
+      console.error('PDF preview failed.', cause);
+      if (!cancelled) setPreviewError(t.previewError);
+    });
+    return () => { cancelled = true; };
+  }, [analysis, activeFile, t.previewError]);
+
   const textItems = analysis?.pages.flatMap((page) => page.textItems) ?? [];
-  const suggestions = detectLabelAnchors(textItems);
+  const geometrySuggestions = analysis?.pages.flatMap((page) => page.geometryCandidates) ?? [];
+  const labelSuggestions = detectLabelAnchors(textItems);
+  const suggestions = [
+    ...geometrySuggestions,
+    ...labelSuggestions.filter((label) => !geometrySuggestions.some((shape) =>
+      shape.pageNumber === label.pageNumber &&
+      Math.max(0, Math.min(shape.x + shape.width, label.x + label.width) - Math.max(shape.x, label.x)) *
+      Math.max(0, Math.min(shape.y + shape.height, label.y + label.height) - Math.max(shape.y, label.y)) /
+      Math.max(1, Math.min(shape.width * shape.height, label.width * label.height)) > 0.45
+    ))
+  ];
 
   return (
     <main className="app-shell" dir={direction}>
@@ -147,11 +177,28 @@ function App() {
             <Metric label={t.textItems} value={analysis.textItemCount} />
             <Metric label={t.existing} value={analysis.existingFieldNames.length} />
             <Metric label={t.suggestions} value={suggestions.length} />
+            <Metric label={t.geometryCount} value={geometrySuggestions.length} />
           </div>
+          <section className="preview-card">
+            <div className="preview-heading"><h3>{t.previewTitle}</h3><p>{t.previewInfo}</p></div>
+            <div className="pdf-preview">
+              <canvas ref={previewCanvasRef} aria-label={t.previewTitle} />
+              {previewSize && <svg className="preview-overlay" viewBox={'0 0 ' + previewSize.width + ' ' + previewSize.height} preserveAspectRatio="none" aria-hidden="true">
+                {suggestions.filter((item) => item.pageNumber === 1).map((item) => (
+                  <rect key={item.id} x={item.x} y={item.y} width={item.width} height={item.height}
+                    rx={item.kind === 'checkbox' ? 2 : 3} fill={item.kind === 'checkbox' ? 'rgba(36,138,92,.10)' : 'rgba(56,89,214,.10)'}
+                    stroke={item.kind === 'checkbox' ? '#248a5c' : '#3859d6'} strokeWidth="1.5">
+                    <title>{item.label || (item.kind === 'checkbox' ? t.geometryCheckbox : t.geometryField)}</title>
+                  </rect>
+                ))}
+              </svg>}
+            </div>
+            {previewError && <p className="error-message" role="alert">{previewError}</p>}
+          </section>
           {analysis.textItemCount === 0 && <p className="notice">{t.noText}</p>}
           {suggestions.length > 0 && <div className="suggestion-list">
             <p className="notice">{t.caveat}</p>
-            {suggestions.slice(0, 5).map((item) => <span className="suggestion-chip" key={item.id}>{item.label}</span>)}
+            {suggestions.slice(0, 12).map((item) => <span className="suggestion-chip" key={item.id}>{item.label || (item.kind === 'checkbox' ? t.geometryCheckbox : t.geometryField)}</span>)}
           </div>}
         </section>
       )}

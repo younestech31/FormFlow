@@ -9,7 +9,7 @@ An offline-first workspace for inspecting, preparing, and filling reusable forms
 - React + TypeScript + Vite shared web UI.
 - PDF.js local text/page inspection.
 - pdf-lib inspection and filling of existing AcroForm fields.
-- Deterministic label-anchor heuristics (not semantic document understanding).
+- Deterministic label-anchor heuristics and first-pass PDF vector-shape detection for axis-aligned rectangles and long horizontal lines (not semantic document understanding).
 - IndexedDB template storage foundation.
 - Capacitor Android shell configuration and Tauri 2 desktop shell.
 - PWA manifest and application-shell service worker.
@@ -19,7 +19,7 @@ This is a foundation, not a complete form editor. Visual PDF rendering, vector g
 
 ## Important limitation
 
-Text extraction works for text-based PDFs. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; a later geometry-only/manual workflow can still help users place fields.
+Text extraction works for text-based PDFs. The inspection engine also reads PDF drawing paths and proposes likely checkboxes, rectangular fields, and long underline fields using geometry rules. These are heuristic suggestions and can mistake table cells or decorative shapes for fields. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; geometric hints may still be found only when the scan's PDF wrapper contains separate vector objects, otherwise fields must be added manually.
 
 ## Requirements
 

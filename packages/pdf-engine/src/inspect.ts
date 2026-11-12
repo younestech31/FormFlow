@@ -1,10 +1,15 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFRadioGroup, PDFTextField } from 'pdf-lib';
-import type { TextFragment } from '@formflow/core';
+import { detectGeometryFields } from '@formflow/core';
+import type { FieldCandidate, TextFragment } from '@formflow/core';
+import { extractVectorShapes } from './vector-geometry';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
-export interface PdfPageInspection { pageNumber: number; width: number; height: number; textItems: TextFragment[]; }
+export interface PdfPageInspection {
+  pageNumber: number; width: number; height: number; textItems: TextFragment[];
+  geometryShapeCount: number; geometryCandidates: FieldCandidate[];
+}
 export interface PdfInspection {
   pageCount: number; textItemCount: number; existingFieldNames: string[]; pages: PdfPageInspection[];
 }
@@ -35,12 +40,48 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
           width: Math.max(0, item.width), height
         });
       });
+      const operatorList = await page.getOperatorList();
+      const vectorShapes = extractVectorShapes(operatorList, pageNumber, viewport);
+      const geometryCandidates = detectGeometryFields(vectorShapes, textItems);
       totalTextItems += textItems.length;
-      pages.push({ pageNumber, width: viewport.width, height: viewport.height, textItems });
+      pages.push({
+        pageNumber, width: viewport.width, height: viewport.height, textItems,
+        geometryShapeCount: vectorShapes.length, geometryCandidates
+      });
     }
     const pdfLibDocument = await PDFDocument.load(bytes);
     const existingFieldNames = pdfLibDocument.getForm().getFields().map((field) => field.getName());
     return { pageCount: pdfJsDocument.numPages, textItemCount: totalTextItems, existingFieldNames, pages };
+  } finally {
+    await loadingTask.destroy();
+  }
+}
+
+export async function renderPdfPage(
+  file: File,
+  pageNumber: number,
+  canvas: HTMLCanvasElement,
+  scale = 1
+): Promise<{ width: number; height: number }> {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    throw new Error('A PDF file is required.');
+  }
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new Error('Page numbers start at 1.');
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = getDocument({ data: bytes.slice() });
+  const document = await loadingTask.promise;
+  try {
+    if (pageNumber > document.numPages) throw new Error('Page number is out of range.');
+    const page = await document.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas rendering is not available.');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    await page.render({ canvas, canvasContext: context, viewport }).promise;
+    return { width: viewport.width, height: viewport.height };
   } finally {
     await loadingTask.destroy();
   }

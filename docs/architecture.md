@@ -30,3 +30,7 @@ All field logic and screen flows belong in shared packages. Differences are limi
 ## Privacy
 
 No server, account, cloud database, telemetry, or paid API is required for core workflows. Documents remain local by default.
+
+## Deterministic PDF geometry pass
+
+The PDF engine reads PDF.js operator lists in addition to text content. A small graphics-state tracker handles save/restore and affine transforms, then converts path coordinates to page viewport coordinates. The shared core applies simple shape rules to axis-aligned closed rectangles and long horizontal lines. Nearby digital text fragments can be attached as provisional labels. This is geometry classification, not OCR or semantic understanding; raster-only scanned page content remains unreadable.
