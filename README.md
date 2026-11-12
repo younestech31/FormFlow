@@ -15,11 +15,11 @@ An offline-first workspace for inspecting, preparing, and filling reusable forms
 - PWA manifest and application-shell service worker.
 - Vercel monorepo build configuration.
 
-This is an early foundation, not yet a complete form editor. The web app can preview the first PDF page and lets users review detected candidates, add a field manually, edit its label and type, drag it, resize it, or delete it. Multi-page editing, locally saved field templates, filling custom overlay fields, and finished PDF export workflows remain planned.
+This is an early foundation, not yet a complete form editor. The web app can navigate between PDF pages and lets users review detected candidates on each page, add a field manually, edit its label and type, drag it, resize it, or delete it. Templates can now be saved in IndexedDB on the current device and re-applied to the same PDF (matched by a local SHA-256 fingerprint). Existing AcroForm text, checkbox, dropdown and radio fields can be filled, and custom text, Arabic, French, checkbox and radio overlay values can be written into the exported PDF. Custom fields are currently flattened into the output PDF rather than created as interactive AcroForm widgets; expanded export options and Android/Desktop native builds remain planned.
 
 ## Important limitation
 
-Text extraction works for text-based PDFs. The inspection engine also reads PDF drawing paths and proposes likely checkboxes, rectangular fields, and long underline fields using geometry rules. These are heuristic suggestions and can mistake table cells or decorative shapes for fields. The current visual preview and editor cover page one; multi-page navigation is not implemented yet. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; geometric hints may be found only when the scan's PDF wrapper contains separate vector objects, otherwise fields must be added manually.
+Text extraction works for text-based PDFs. The inspection engine also reads PDF drawing paths and proposes likely checkboxes, rectangular fields, and long underline fields using geometry rules. These are heuristic suggestions and can mistake table cells or decorative shapes for fields. The visual preview and field editor support navigation across all PDF pages. Templates retain geometry for every page. Exported custom fields are flattened page content, not interactive AcroForm controls. A scanned PDF contains page images, not selectable text. No OCR is included, so FormFlow cannot read labels inside scans; geometric hints may be found only when the scan's PDF wrapper contains separate vector objects, otherwise fields must be added manually.
 
 ## Requirements
 
@@ -33,6 +33,7 @@ npm run dev
 ```
 
 ```bash
+npm test
 npm run typecheck
 npm run build
 ```

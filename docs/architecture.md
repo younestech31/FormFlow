@@ -34,3 +34,7 @@ No server, account, cloud database, telemetry, or paid API is required for core 
 ## Deterministic PDF geometry pass
 
 The PDF engine reads PDF.js operator lists in addition to text content. A small graphics-state tracker handles save/restore and affine transforms, then converts path coordinates to page viewport coordinates. The shared core applies simple shape rules to axis-aligned closed rectangles and long horizontal lines. Nearby digital text fragments can be attached as provisional labels. This is geometry classification, not OCR or semantic understanding; raster-only scanned page content remains unreadable.
+
+## Local templates and flattened export
+
+The web app stores field geometry and template metadata in IndexedDB. A SHA-256 fingerprint of the selected source PDF is stored with each template so it is offered only for the matching document. No source PDF or field values are uploaded or stored as part of the template. The PDF export layer writes overlay values into page content with pdf-lib; bundled IBM Plex Sans Arabic font assets, Arabic contextual reshaping, and the Unicode bidirectional algorithm are used for Arabic/mixed-direction runs. Existing AcroForm text, checkbox, dropdown and radio values are updated in the native form. Custom overlays are flattened page content rather than interactive AcroForm widgets. Arabic native-field appearance generation remains unsupported; Arabic values are supported in custom overlay fields. Rotated pages are rejected until their coordinate transform is implemented.

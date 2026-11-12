@@ -10,8 +10,8 @@
 - [x] PWA shell and Vercel deployment config.
 
 ## Milestone 1 — document workspace
-- [x] In-app first-page PDF preview with detected-candidate overlays.
-- [ ] Page navigation and zoom controls (the current preview/editor is limited to page one).
+- [x] In-app multi-page PDF preview, page navigation, and detected-candidate overlays.
+- [ ] Zoom controls.
 - [ ] Drag/drop and native file picker adapters.
 - [ ] Recent documents and local metadata management.
 
@@ -19,18 +19,20 @@
 - [x] First-pass inspection of PDF vector paths; detect axis-aligned rectangles, small checkbox-like squares, and long horizontal rules.
 - [x] Basic spatial association of extracted digital text labels with nearby geometric candidates.
 - [ ] Improve spatial association for multi-column, rotated, and complex layouts. (Basic RTL left/right association is implemented.)
-- [x] First-page overlay editor: manually add, move, resize, relabel, change type, and delete candidate fields.
+- [x] Multi-page overlay editor: manually add, move, resize, relabel, change type, and delete candidate fields.
 - [x] Editable field type choices: text, multiline, checkbox, radio, date, select, and signature.
-- [ ] Save manual corrections in reusable local templates.
+- [x] Save and re-apply templates locally using a SHA-256 source-file fingerprint.
 
 ## Milestone 3 — fill and export
-- [ ] Fill native AcroForm fields and custom overlay fields.
-- [ ] Flattened/editable PDF export options where possible.
+- [x] Insert values for custom overlay fields into a flattened PDF export (including Arabic shaping and bidirectional layout).
+- [x] Native AcroForm value controls for text, checkbox, dropdown and radio fields.
+- [x] Flattened PDF export for text, multiline text, checkbox and radio overlay values.
+- [ ] Additional editable/flattened export options and page-rotation support.
 - [ ] Optional local personal profile, with review before insertion.
-- [ ] Arabic/RTL text shaping, font embedding and rendering tests.
+- [x] Arabic/RTL shaping, IBM Plex Sans Arabic font embedding, and PDF text extraction tests for custom overlay fields.
 
 ## Milestone 4 — parity and quality
-- [ ] Shared test suite for detection, field geometry, templates and export.
+- [x] Shared test suite for detection, field geometry, templates and export.
 - [ ] Android and desktop filesystem adapters.
 - [ ] Printing, accessibility and offline tests on all targets.
 - [ ] User documentation and release packaging.

@@ -13,13 +13,15 @@ export interface VectorShape {
 export interface FieldCandidate {
   id: string; label: string; kind: FieldKind; pageNumber: number;
   x: number; y: number; width: number; height: number;
-  confidence: number; method: 'label-anchor' | 'geometry' | 'manual';
+  confidence: number; method: 'label-anchor' | 'geometry' | 'manual'; group?: string; options?: string[];
 }
 export interface FormField {
   id: string; name: string; label: string; kind: FieldKind; pageNumber: number;
   x: number; y: number; width: number; height: number; required: boolean; options?: string[];
+  method?: FieldCandidate['method']; confidence?: number; group?: string;
 }
 export interface FormTemplate {
   id: string; name: string; sourceFileName: string; pageCount: number;
+  sourceFingerprint?: string;
   fields: FormField[]; createdAt: string; updatedAt: string;
 }

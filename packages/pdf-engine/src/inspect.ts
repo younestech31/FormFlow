@@ -10,8 +10,15 @@ export interface PdfPageInspection {
   pageNumber: number; width: number; height: number; textItems: TextFragment[];
   geometryShapeCount: number; geometryCandidates: FieldCandidate[];
 }
+export interface ExistingPdfField {
+  name: string;
+  kind: 'text' | 'checkbox' | 'dropdown' | 'radio' | 'other';
+  options?: string[];
+}
+
 export interface PdfInspection {
-  pageCount: number; textItemCount: number; existingFieldNames: string[]; pages: PdfPageInspection[];
+  pageCount: number; textItemCount: number; existingFieldNames: string[];
+  existingFields: ExistingPdfField[]; pages: PdfPageInspection[];
 }
 
 export async function inspectPdf(file: File): Promise<PdfInspection> {
@@ -50,8 +57,16 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
       });
     }
     const pdfLibDocument = await PDFDocument.load(bytes);
-    const existingFieldNames = pdfLibDocument.getForm().getFields().map((field) => field.getName());
-    return { pageCount: pdfJsDocument.numPages, textItemCount: totalTextItems, existingFieldNames, pages };
+    const nativeFields = pdfLibDocument.getForm().getFields();
+    const existingFieldNames = nativeFields.map((field) => field.getName());
+    const existingFields: ExistingPdfField[] = nativeFields.map((field) => {
+      if (field instanceof PDFTextField) return { name: field.getName(), kind: 'text' };
+      if (field instanceof PDFCheckBox) return { name: field.getName(), kind: 'checkbox' };
+      if (field instanceof PDFDropdown) return { name: field.getName(), kind: 'dropdown', options: field.getOptions() };
+      if (field instanceof PDFRadioGroup) return { name: field.getName(), kind: 'radio', options: field.getOptions() };
+      return { name: field.getName(), kind: 'other' };
+    });
+    return { pageCount: pdfJsDocument.numPages, textItemCount: totalTextItems, existingFieldNames, existingFields, pages };
   } finally {
     await loadingTask.destroy();
   }
