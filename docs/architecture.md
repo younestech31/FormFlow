@@ -31,6 +31,10 @@ All field logic and screen flows belong in shared packages. Differences are limi
 
 No server, account, cloud database, telemetry, or paid API is required for core workflows. Documents remain local by default.
 
+## Offline web shell
+
+The Vite build emits a static asset manifest. During service-worker installation, FormFlow pre-caches the application entry bundle, lazy-loaded PDF inspection and export chunks, stylesheets, bundled fonts, and the PDF.js worker. Navigations use the cached shell when the network is unavailable. Requests for user PDF files bypass the service-worker cache; document contents remain in the local processing flow.
+
 ## Deterministic PDF geometry pass
 
 The PDF engine reads PDF.js operator lists in addition to text content. A small graphics-state tracker handles save/restore and affine transforms, then converts path coordinates to page viewport coordinates. The shared core applies simple shape rules to axis-aligned closed rectangles and long horizontal lines. Nearby digital text fragments can be attached as provisional labels. This is geometry classification, not OCR or semantic understanding; raster-only scanned page content remains unreadable.
