@@ -14,7 +14,8 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
     throw new Error('A PDF file is required.');
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const pdfJsDocument = await getDocument({ data: bytes.slice() }).promise;
+  const loadingTask = getDocument({ data: bytes.slice() });
+  const pdfJsDocument = await loadingTask.promise;
   try {
     const pages: PdfPageInspection[] = [];
     let totalTextItems = 0;
@@ -41,7 +42,7 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
     const existingFieldNames = pdfLibDocument.getForm().getFields().map((field) => field.getName());
     return { pageCount: pdfJsDocument.numPages, textItemCount: totalTextItems, existingFieldNames, pages };
   } finally {
-    await pdfJsDocument.destroy();
+    await loadingTask.destroy();
   }
 }
 
