@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { clampFieldRectangle, detectLabelAnchors } from '@formflow/core';
+import { clampFieldRectangle, detectLabelAnchors, isEligibleForLabelMatching } from '@formflow/core';
 import type { FormField, FormTemplate } from '@formflow/core';
 import arabicFontUrl from '@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff?url';
 import latinFontUrl from '@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-400-normal.woff?url';
 import type { FieldCandidate } from '@formflow/core';
-import type { PdfInspection } from '@formflow/pdf-engine';
+import type { PdfInspection, PdfOcrProgress, OcrLanguageSet } from '@formflow/pdf-engine';
 
 type Language = 'ar' | 'fr' | 'en';
 const messages = {
@@ -13,7 +13,7 @@ const messages = {
     intro: 'افحص النصوص والحقول والأشكال الهندسية داخل ملفات PDF محليًا، دون رفع مستنداتك إلى خادم.',
     importTitle: 'ابدأ بمستند PDF', importHint: 'اختر ملفًا من جهازك. تتم القراءة محليًا.',
     choose: 'اختيار ملف PDF', privacy: 'ملفاتك تبقى على جهازك', local: 'معالجة محلية',
-    offline: 'مصمم للعمل دون اتصال بعد التحميل', noAi: 'قواعد هندسية دون AI أو OCR',
+    offline: 'مصمم للعمل دون اتصال بعد التحميل', noAi: 'OCR مفتوح المصدر يعمل محليًا دون خدمات سحابية',
     features: 'ما الذي يجهزه FormFlow؟', featureOne: 'فحص حقول PDF الأصلية',
     featureOneText: 'قراءة الحقول التفاعلية الموجودة أصلًا داخل الملف.',
     featureTwo: 'اقتراحات قابلة للمراجعة',
@@ -46,7 +46,16 @@ const messages = {
     exportError: 'تعذر تصدير PDF. تحقق من القيم والصفحات ثم حاول مجددًا.',
     exportNote: 'تُدمج القيم داخل الصفحة كطبقة ثابتة؛ لا تتحول الحقول المخصصة إلى حقول PDF تفاعلية.',
     caveat: 'الاقتراحات أولية وليست حقولًا مؤكدة. راجعها قبل استخدامها.',
-    noText: 'لم يُعثر على نص قابل للاستخراج. قد يكون الملف صورة ممسوحة؛ يمكن رصد بعض أشكاله الهندسية، لكن لا يمكن قراءة تسمياتها دون OCR.',
+    noText: 'لم يُعثر على نص رقمي قابل للاستخراج. استخدم OCR للصفحة الممسوحة ثم راجع النصوص والمواضع قبل اعتمادها.',
+    ocrTitle: 'التعرّف الضوئي على النصوص',
+    ocrHint: 'تحويل الصفحة إلى صورة وقراءة النصوص محليًا. قد يستغرق التحميل الأول للنماذج بعض الوقت.',
+    ocrRunPage: 'تشغيل OCR للصفحة الحالية', ocrProcessing: 'جارٍ التعرّف الضوئي…',
+    ocrLanguageLabel: 'لغات التعرّف', ocrLanguageArFrEn: 'العربية والفرنسية والإنجليزية',
+    ocrLanguageArFr: 'العربية والفرنسية', ocrLanguageFrEn: 'الفرنسية والإنجليزية',
+    ocrReviewTitle: 'مراجعة النصوص المستخرجة', ocrConfidence: 'الثقة',
+    ocrEmpty: 'لم تُستخرج نصوص من هذه الصفحة بعد.',
+    ocrError: 'تعذّر تشغيل OCR. تحقق من اتصالك عند التحميل الأول للنماذج ثم أعد المحاولة.',
+    ocrFinished: 'اكتمل OCR. راجع النصوص وعدّل الأخطاء قبل الاعتماد.',
     scanning: 'جارٍ فحص الملف محليًا...', selectAnother: 'اختيار ملف آخر',
     footer: 'FormFlow مشروع مفتوح المصدر قيد التأسيس',
     error: 'تعذر قراءة الملف. تحقق من أنه PDF صالح وغير محمي بكلمة مرور.',
@@ -58,7 +67,7 @@ const messages = {
     intro: 'Inspectez localement le texte, les champs et les formes géométriques des PDF, sans envoyer vos documents vers un serveur.',
     importTitle: 'Commencer avec un PDF', importHint: 'Choisissez un fichier. Le traitement est local.',
     choose: 'Choisir un PDF', privacy: 'Vos fichiers restent sur votre appareil', local: 'Traitement local',
-    offline: 'Conçu pour fonctionner hors ligne après chargement', noAi: 'Règles géométriques, sans IA ni OCR',
+    offline: 'Conçu pour fonctionner hors ligne après chargement', noAi: 'OCR open source exécuté localement, sans service cloud',
     features: 'Ce que prépare FormFlow', featureOne: 'Champs PDF existants',
     featureOneText: 'Lecture des champs interactifs déjà présents dans le document.',
     featureTwo: 'Suggestions vérifiables',
@@ -91,7 +100,16 @@ const messages = {
     exportError: 'Impossible d’exporter le PDF. Vérifiez les valeurs et les pages.',
     exportNote: 'Les valeurs sont aplaties dans la page ; les champs ajoutés ne deviennent pas des champs PDF interactifs.',
     caveat: 'Les suggestions sont heuristiques et doivent être vérifiées.',
-    noText: 'Aucun texte extractible. Le fichier peut être un scan ; certaines formes peuvent être détectées, mais leurs libellés ne peuvent pas être lus sans OCR.',
+    noText: 'Aucun texte PDF extractible. Lancez l’OCR sur la page numérisée, puis vérifiez les textes et leurs positions avant validation.',
+    ocrTitle: 'Reconnaissance optique de caractères',
+    ocrHint: 'La page est convertie en image et traitée localement. Le premier chargement des modèles peut prendre du temps.',
+    ocrRunPage: 'Lancer l’OCR de la page', ocrProcessing: 'Reconnaissance en cours…',
+    ocrLanguageLabel: 'Langues OCR', ocrLanguageArFrEn: 'Arabe, français et anglais',
+    ocrLanguageArFr: 'Arabe et français', ocrLanguageFrEn: 'Français et anglais',
+    ocrReviewTitle: 'Vérifier le texte reconnu', ocrConfidence: 'Confiance',
+    ocrEmpty: 'Aucun texte OCR sur cette page pour le moment.',
+    ocrError: 'Échec de l’OCR. Vérifiez la connexion au premier chargement des modèles, puis réessayez.',
+    ocrFinished: 'OCR terminé. Vérifiez et corrigez le texte avant de valider les champs.',
     scanning: 'Inspection locale en cours…', selectAnother: 'Choisir un autre fichier',
     footer: 'FormFlow — fondation en cours de construction',
     error: 'Impossible de lire le PDF. Vérifiez le fichier et son éventuel mot de passe.',
@@ -103,7 +121,7 @@ const messages = {
     intro: 'Inspect PDF text, fields, and geometric shapes locally without uploading documents to a server.',
     importTitle: 'Start with a PDF', importHint: 'Choose a file. Processing happens locally.',
     choose: 'Choose PDF', privacy: 'Your files stay on your device', local: 'Local processing',
-    offline: 'Designed to work offline after loading', noAi: 'Geometry rules, no AI or OCR',
+    offline: 'Designed to work offline after loading', noAi: 'Open-source OCR runs locally without cloud services',
     features: 'What FormFlow is building', featureOne: 'Existing PDF fields',
     featureOneText: 'Read interactive fields already embedded in a document.',
     featureTwo: 'Reviewable suggestions',
@@ -136,7 +154,16 @@ const messages = {
     exportError: 'Could not export the PDF. Check the values and pages, then retry.',
     exportNote: 'Values are flattened into the page; custom fields do not become interactive PDF form fields.',
     caveat: 'Suggestions are heuristic and must be reviewed before use.',
-    noText: 'No extractable text was found. This may be a scan; some geometric shapes may still be detected, but their labels cannot be read without OCR.',
+    noText: 'No digital PDF text was found. Run OCR on the scanned page, then review recognized text and positions before accepting it.',
+    ocrTitle: 'Optical character recognition',
+    ocrHint: 'The page is rendered as an image and processed locally. The first model download may take a while.',
+    ocrRunPage: 'Run OCR on this page', ocrProcessing: 'Recognizing text…',
+    ocrLanguageLabel: 'OCR languages', ocrLanguageArFrEn: 'Arabic, French and English',
+    ocrLanguageArFr: 'Arabic and French', ocrLanguageFrEn: 'French and English',
+    ocrReviewTitle: 'Review recognized text', ocrConfidence: 'Confidence',
+    ocrEmpty: 'No OCR text has been extracted from this page yet.',
+    ocrError: 'OCR could not run. Check your connection for the first model download, then retry.',
+    ocrFinished: 'OCR finished. Review and correct the text before accepting fields.',
     scanning: 'Inspecting locally…', selectAnother: 'Choose another file',
     footer: 'FormFlow — project foundation',
     error: 'The PDF could not be read. Check that it is valid and not password-protected.',
@@ -149,7 +176,10 @@ function buildCandidates(analysis: PdfInspection): FieldCandidate[] {
   const fragments = analysis.pages.flatMap((page) => page.textItems);
   const geometry = analysis.pages.flatMap((page) => page.geometryCandidates);
   const nativeWidgets = analysis.pages.flatMap((page) => page.nativeWidgets);
-  const labels = detectLabelAnchors(fragments, [...geometry, ...nativeWidgets]);
+  const labels = detectLabelAnchors(
+    fragments.filter(isEligibleForLabelMatching),
+    [...geometry, ...nativeWidgets]
+  );
   return [
     ...geometry,
     ...labels.filter((label) => !geometry.some((shape) =>
@@ -189,6 +219,11 @@ function App() {
   const [language, setLanguage] = useState<Language>('ar');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStage, setOcrStage] = useState('');
+  const [ocrError, setOcrError] = useState('');
+  const [ocrLanguages, setOcrLanguages] = useState<OcrLanguageSet>('ara+fra+eng');
   const [analysis, setAnalysis] = useState<PdfInspection | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeInspectorTab, setActiveInspectorTab] = useState<'fields' | 'templates' | 'native' | 'export'>('fields');
@@ -236,7 +271,7 @@ function App() {
     if (!file) return;
     setError(''); setAnalysis(null); setCurrentPage(1); setActiveInspectorTab('fields'); setFileName(file.name); setActiveFile(null); setPreviewSize(null); setPreviewError('');
     setEditableFields([]); setSelectedFieldId(''); setFieldValues({}); setNativeFieldValues({}); setActiveFingerprint('');
-    setTemplateStatus(''); setExportStatus(''); dragRef.current = null;
+    setTemplateStatus(''); setExportStatus(''); setOcrError(''); setOcrStage(''); setOcrProgress(0); dragRef.current = null;
     setSelectedTemplateId('');
     if (file.size > 100 * 1024 * 1024) { setError(t.sizeError); return; }
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -256,6 +291,54 @@ function App() {
     }
     catch (cause) { console.error('PDF inspection failed.', cause); setError(t.error); }
     finally { setBusy(false); }
+  }
+
+  async function handleOcrPage() {
+    if (!activeFile || !analysis || ocrBusy) return;
+    setOcrBusy(true);
+    setOcrError('');
+    setOcrProgress(0);
+    setOcrStage(t.ocrProcessing);
+    try {
+      const { recognizePdfPage } = await import('@formflow/pdf-engine');
+      const fragments = await recognizePdfPage(activeFile, currentPage, {
+        languages: ocrLanguages,
+        onProgress: (progress: PdfOcrProgress) => {
+          setOcrProgress(progress.progress);
+          setOcrStage(t.ocrProcessing);
+        }
+      });
+      const updated: PdfInspection = {
+        ...analysis,
+        pages: analysis.pages.map((page) => page.pageNumber === currentPage
+          ? { ...page, textItems: [...page.textItems.filter((item) => item.source !== 'ocr'), ...fragments] }
+          : page)
+      };
+      updated.textItemCount = updated.pages.reduce((count, page) => count + page.textItems.length, 0);
+      setAnalysis(updated);
+      setEditableFields(buildCandidates(updated));
+      setOcrProgress(1);
+      setOcrStage(fragments.length ? t.ocrFinished : t.ocrEmpty);
+    } catch (cause) {
+      console.error('Local OCR failed.', cause);
+      setOcrError(t.ocrError);
+      setOcrStage('');
+    } finally {
+      setOcrBusy(false);
+    }
+  }
+
+  function updateOcrText(fragmentId: string, text: string) {
+    if (!analysis) return;
+    const updated: PdfInspection = {
+      ...analysis,
+      pages: analysis.pages.map((page) => ({
+        ...page,
+        textItems: page.textItems.map((fragment) => fragment.id === fragmentId ? { ...fragment, text, reviewed: true } : fragment)
+      }))
+    };
+    setAnalysis(updated);
+    setEditableFields(buildCandidates(updated));
   }
 
   useEffect(() => {
@@ -310,6 +393,8 @@ function App() {
 
   const suggestions = editableFields;
   const geometrySuggestions = editableFields.filter((field) => field.method === 'geometry');
+  const currentOcrItems = (analysis?.pages.find((page) => page.pageNumber === currentPage)?.textItems ?? [])
+    .filter((fragment) => fragment.source === 'ocr');
 
   function pagePoint(event: React.PointerEvent<SVGSVGElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -530,10 +615,10 @@ function App() {
             <div className="preview-heading">
               <div><h3>{t.previewTitle}</h3><p>{t.previewInfo}</p></div>
               <div className="page-navigation">
-                <button className="secondary-button" type="button" disabled={currentPage <= 1}
+                <button className="secondary-button" type="button" disabled={currentPage <= 1 || ocrBusy}
                   onClick={() => { setPreviewSize(null); setCurrentPage((page) => Math.max(1, page - 1)); }}>{t.previousPage}</button>
                 <span>{t.pageLabel} {currentPage} / {analysis.pageCount}</span>
-                <button className="secondary-button" type="button" disabled={currentPage >= analysis.pageCount}
+                <button className="secondary-button" type="button" disabled={currentPage >= analysis.pageCount || ocrBusy}
                   onClick={() => { setPreviewSize(null); setCurrentPage((page) => Math.min(analysis.pageCount, page + 1)); }}>{t.nextPage}</button>
               </div>
             </div>
@@ -544,6 +629,11 @@ function App() {
                 preserveAspectRatio="none" onPointerDown={handlePreviewPointerDown}
                 onPointerMove={handlePreviewPointerMove} onPointerUp={handlePreviewPointerUp}
                 onPointerCancel={handlePreviewPointerUp}>
+                {currentOcrItems.map((fragment) => <g className="ocr-text-highlight" key={fragment.id}>
+                  <rect x={fragment.x} y={fragment.y} width={fragment.width} height={fragment.height}>
+                    <title>{fragment.text} — {t.ocrConfidence}: {Math.round((fragment.confidence ?? 0) * 100)}%</title>
+                  </rect>
+                </g>)}
                 {suggestions.filter((item) => item.pageNumber === currentPage).map((item) => {
                   const selected = item.id === selectedFieldId;
                   const stroke = item.kind === 'checkbox' ? '#248a5c' : '#3859d6';
@@ -636,6 +726,39 @@ function App() {
                 <button className="secondary-button" type="button" onClick={addManualField}>{t.addField}</button>
               </div>
               <p className="field-editor-hint">{t.moveResizeHint}</p>
+              <section className="ocr-panel" aria-label={t.ocrTitle}>
+                <div className="ocr-panel-heading">
+                  <strong>{t.ocrTitle}</strong>
+                  <p>{t.ocrHint}</p>
+                </div>
+                <div className="ocr-controls">
+                  <label>
+                    <span>{t.ocrLanguageLabel}</span>
+                    <select value={ocrLanguages} onChange={(event) => setOcrLanguages(event.target.value as OcrLanguageSet)} disabled={ocrBusy}>
+                      <option value="ara+fra+eng">{t.ocrLanguageArFrEn}</option>
+                      <option value="ara+fra">{t.ocrLanguageArFr}</option>
+                      <option value="fra+eng">{t.ocrLanguageFrEn}</option>
+                    </select>
+                  </label>
+                  <button className="secondary-button" type="button" onClick={handleOcrPage} disabled={ocrBusy || !activeFile}>
+                    {ocrBusy ? t.ocrProcessing : t.ocrRunPage}
+                  </button>
+                </div>
+                {ocrBusy && <div className="ocr-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ocrProgress * 100)}>
+                  <span style={{ width: `${Math.round(ocrProgress * 100)}%` }} />
+                </div>}
+                {ocrStage && <p className="ocr-status" role="status">{ocrStage}{ocrBusy ? ` ${Math.round(ocrProgress * 100)}%` : ''}</p>}
+                {ocrError && <p className="error-message" role="alert">{ocrError}</p>}
+              </section>
+              <section className="ocr-review" aria-label={t.ocrReviewTitle}>
+                <h5>{t.ocrReviewTitle} ({currentOcrItems.length})</h5>
+                {currentOcrItems.length === 0
+                  ? <p className="empty-editor">{t.ocrEmpty}</p>
+                  : currentOcrItems.map((fragment) => <label className="ocr-review-row" key={fragment.id}>
+                    <span>{t.ocrConfidence}: {Math.round((fragment.confidence ?? 0) * 100)}%</span>
+                    <textarea dir="auto" rows={2} value={fragment.text} onChange={(event) => updateOcrText(fragment.id, event.target.value)} />
+                  </label>)}
+              </section>
               <div className="field-editor-list">
                 {suggestions.filter((field) => field.pageNumber === currentPage).map((field) => (
                   <div className={'field-editor-row' + (field.id === selectedFieldId ? ' is-selected' : '')} key={field.id}

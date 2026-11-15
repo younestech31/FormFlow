@@ -26,6 +26,7 @@ test('pre-caches entry, lazy PDF chunks, fonts and serves the app offline', asyn
   const handlers = new Map();
   const stored = new Map();
   let offline = false;
+  let ignoredVaryForStaticAssets = false;
   const manifest = {
     'index.html': {
       file: 'assets/index.js',
@@ -61,9 +62,12 @@ test('pre-caches entry, lazy PDF chunks, fonts and serves the app offline', asyn
   };
   const caches = {
     async open() { return cache; },
-    async keys() { return ['formflow-shell-v2']; },
+    async keys() { return ['formflow-shell-v4']; },
     async delete() { return true; },
-    async match(key) { return cache.match(key); }
+    async match(key, options) {
+      ignoredVaryForStaticAssets = options?.ignoreVary === true;
+      return cache.match(key);
+    }
   };
   const self = {
     location: { origin: ORIGIN },
@@ -107,6 +111,7 @@ test('pre-caches entry, lazy PDF chunks, fonts and serves the app offline', asyn
   });
   const lazyChunk = await assetResponse;
   assert.equal(await lazyChunk.text(), new URL('/assets/export.js', ORIGIN).href);
+  assert.equal(ignoredVaryForStaticAssets, true, 'static asset cache lookups must ignore response Vary headers so pre-cached no-cors files are reusable by the browser');
 
   let pdfWasIntercepted = false;
   handlers.get('fetch')({

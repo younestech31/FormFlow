@@ -1,5 +1,16 @@
 import type { FieldCandidate, TextFragment, VectorShape } from './types';
 
+export const OCR_LABEL_CONFIDENCE_THRESHOLD = 0.45;
+
+/** Keep uncertain OCR out of automatic matching until a person reviews its text. */
+export function isEligibleForLabelMatching(
+  fragment: Pick<TextFragment, 'source' | 'confidence' | 'reviewed'>
+): boolean {
+  return fragment.source !== 'ocr'
+    || fragment.reviewed === true
+    || (fragment.confidence ?? 0) >= OCR_LABEL_CONFIDENCE_THRESHOLD;
+}
+
 const ARABIC = /[\u0600-\u06ff]/;
 const LABEL_WORDS = new Set([
   // Common Arabic administrative form labels.

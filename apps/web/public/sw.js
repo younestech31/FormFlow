@@ -1,4 +1,4 @@
-const CACHE_NAME = 'formflow-shell-v2';
+const CACHE_NAME = 'formflow-shell-v4';
 const SHELL_URLS = ['/', '/manifest.webmanifest', '/formflow.svg'];
 const BUILD_MANIFEST_URL = '/formflow-manifest.json';
 
@@ -72,7 +72,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith((async () => {
-    const cached = await caches.match(request);
+    const cached = await caches.match(request, { ignoreVary: true });
     if (cached) return cached;
 
     try {

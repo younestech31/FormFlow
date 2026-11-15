@@ -38,7 +38,18 @@
 - [ ] User documentation and release packaging.
 
 ## Explicit non-goals
-AI/ML recognition, OCR, paid APIs, subscriptions, mandatory accounts, and cloud document storage.
+Hosted generative AI, external OCR APIs, paid APIs, subscriptions, mandatory accounts, and cloud document storage. OCR is performed locally using an open-source Tesseract model; this does not imply semantic understanding or guarantee correct reading.
+
+## Local OCR integration (initial implementation)
+
+- [x] Render a selected PDF page to a bounded-resolution image using PDF.js.
+- [x] Run local Tesseract.js WebAssembly OCR with Arabic, French, and English model selections.
+- [x] Bundle the worker, WASM core, and pinned language packs as same-origin static assets at build time.
+- [x] Reuse the OCR worker between pages and cache loaded model assets locally.
+- [x] Map OCR line geometry back to PDF page coordinates and expose confidence for review.
+- [x] Review and edit OCR lines before using higher-confidence lines for deterministic field-label matching.
+- [ ] Benchmark Arabic/French OCR accuracy on a representative corpus of real Algerian administrative forms and tune preprocessing based on measured errors.
+- [ ] Add image cleanup and deskew options, with regression fixtures for low-resolution, rotated, and skewed scans.
 
 ## Geometry detection scope
 

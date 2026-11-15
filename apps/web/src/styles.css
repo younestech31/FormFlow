@@ -425,3 +425,25 @@ h1 { font-size: clamp(36px, 5vw, 58px); line-height: 1.22; letter-spacing: -.04e
   outline: 2px solid rgba(56, 89, 214, .4);
   outline-offset: 2px;
 }
+
+/* Local OCR controls and review transcript. */
+.ocr-panel { margin: 12px 0 14px; padding: 12px; border: 1px solid #dfe5fb; border-radius: 10px; background: #f8f9ff; }
+.ocr-panel-heading strong, .ocr-review h5 { display: block; margin: 0; font-size: 12px; color: #2f3f71; }
+.ocr-panel-heading p { margin: 5px 0 10px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.ocr-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.ocr-controls label { display: grid; flex: 1 1 135px; gap: 5px; min-width: 0; color: var(--muted); font-size: 10px; }
+.ocr-controls select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; color: var(--ink); background: #fff; font: inherit; font-size: 11px; }
+.ocr-controls .secondary-button { flex: 0 1 auto; max-width: 100%; font-size: 10px; }
+.ocr-progress { height: 5px; overflow: hidden; margin-top: 10px; border-radius: 99px; background: #e3e8fb; }
+.ocr-progress span { display: block; height: 100%; background: var(--accent); transition: width .18s ease; }
+.ocr-status { margin: 8px 0 0; color: #3c568f; font-size: 10px; line-height: 1.6; }
+.ocr-review { display: grid; gap: 8px; margin: 12px 0 16px; }
+.ocr-review h5 { margin-bottom: 2px; }
+.ocr-review-row { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+.ocr-review-row textarea { width: 100%; min-height: 42px; resize: vertical; border: 1px solid #e0e5f0; border-radius: 7px; padding: 7px 9px; color: var(--ink); background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
+.ocr-text-highlight { pointer-events: none; }
+.ocr-text-highlight rect { fill: rgba(225, 152, 38, .10); stroke: #d58c18; stroke-width: 1.2; stroke-dasharray: 4 2; vector-effect: non-scaling-stroke; }
+@media (max-width: 760px) {
+  .ocr-controls { align-items: stretch; flex-direction: column; }
+  .ocr-controls .secondary-button { width: 100%; }
+}

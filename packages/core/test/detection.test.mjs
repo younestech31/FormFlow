@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   clampFieldRectangle,
   detectGeometryFields,
-  detectLabelAnchors
+  detectLabelAnchors,
+  isEligibleForLabelMatching,
+  OCR_LABEL_CONFIDENCE_THRESHOLD
 } from '../src/detection.ts';
 
 const page = { pageNumber: 1, pageWidth: 600, pageHeight: 800 };
@@ -400,4 +402,14 @@ test('reconstructs complete tables independently on repeated pages', () => {
   assert.equal(candidates.length, 2);
   assert.deepEqual(candidates.map((candidate) => candidate.pageNumber), [1, 2]);
   assert.deepEqual(candidates.map((candidate) => candidate.label), ['Name', 'Address']);
+});
+
+
+test('keeps low-confidence OCR out of automatic labels until a user reviews the text', () => {
+  assert.equal(OCR_LABEL_CONFIDENCE_THRESHOLD, 0.45);
+  assert.equal(isEligibleForLabelMatching({ source: 'ocr', confidence: 0.44 }), false);
+  assert.equal(isEligibleForLabelMatching({ source: 'ocr', confidence: 0.44, reviewed: true }), true);
+  assert.equal(isEligibleForLabelMatching({ source: 'ocr', confidence: 0.45 }), true);
+  assert.equal(isEligibleForLabelMatching({ source: 'pdf' }), true);
+  assert.equal(isEligibleForLabelMatching({}), true);
 });

@@ -4,6 +4,7 @@ export type FieldKind = 'text' | 'multiline' | 'checkbox' | 'radio' | 'date' | '
 export interface TextFragment {
   id: string; text: string; pageNumber: number; pageWidth: number; pageHeight: number;
   x: number; y: number; width: number; height: number;
+  source?: 'pdf' | 'ocr'; confidence?: number; reviewed?: boolean;
 }
 export interface VectorShape {
   id: string; pageNumber: number; kind: 'rectangle' | 'line' | 'ellipse';
