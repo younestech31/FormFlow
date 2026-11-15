@@ -148,7 +148,8 @@ const messages = {
 function buildCandidates(analysis: PdfInspection): FieldCandidate[] {
   const fragments = analysis.pages.flatMap((page) => page.textItems);
   const geometry = analysis.pages.flatMap((page) => page.geometryCandidates);
-  const labels = detectLabelAnchors(fragments);
+  const nativeWidgets = analysis.pages.flatMap((page) => page.nativeWidgets);
+  const labels = detectLabelAnchors(fragments, [...geometry, ...nativeWidgets]);
   return [
     ...geometry,
     ...labels.filter((label) => !geometry.some((shape) =>

@@ -28,7 +28,7 @@ export function extractVectorShapes(
   const matrixStack: Matrix[] = [];
   let matrix: Matrix = [...IDENTITY];
 
-  const finishPath = (points: Array<[number, number]>, closed: boolean, index: number) => {
+  const finishPath = (points: Array<[number, number]>, closed: boolean, curved: boolean, index: number) => {
     if (points.length < 2) return;
     const transformed = points.map(([x, y]) => {
       const [tx, ty] = transformPoint(matrix, x, y);
@@ -41,19 +41,27 @@ export function extractVectorShapes(
     const width = Math.max(...xs) - left;
     const height = Math.max(...ys) - top;
     if (width < 0.5 && height < 0.5) return;
-    const isHorizontalLine = height <= 2.5 && width >= 40;
-    const isVerticalLine = width <= 2.5 && height >= 40;
-    const isRectangle = closed && points.length >= 4 && points.length <= 5 &&
+    const ratio = width / Math.max(1, height);
+    const [firstX, firstY] = transformed[0];
+    const [lastX, lastY] = transformed[transformed.length - 1];
+    const returnsToStart = Math.hypot(firstX - lastX, firstY - lastY) <= 3;
+    const isEllipse = curved && (closed || returnsToStart) &&
+      points.length >= 5 && points.length <= 7 &&
+      width >= 8 && width <= 40 && height >= 8 && height <= 40 &&
+      ratio >= 0.72 && ratio <= 1.38;
+    const isHorizontalLine = !curved && height <= 2.5 && width >= 40;
+    const isVerticalLine = !curved && width <= 2.5 && height >= 40;
+    const isRectangle = !curved && closed && points.length >= 4 && points.length <= 5 &&
       width >= 8 && height >= 8 && (
         transformed.every((point) => Math.abs(point[0] - left) < 2 || Math.abs(point[0] - (left + width)) < 2) &&
         transformed.every((point) => Math.abs(point[1] - top) < 2 || Math.abs(point[1] - (top + height)) < 2)
       );
-    if (!isHorizontalLine && !isVerticalLine && !isRectangle) return;
+    if (!isHorizontalLine && !isVerticalLine && !isRectangle && !isEllipse) return;
     shapes.push({
       id: 'p' + pageNumber + '-shape-' + index, pageNumber,
-      kind: isRectangle ? 'rectangle' : 'line',
+      kind: isRectangle ? 'rectangle' : isEllipse ? 'ellipse' : 'line',
       x: left, y: top, width, height,
-      pageWidth: viewport.width, pageHeight: viewport.height, closed
+      pageWidth: viewport.width, pageHeight: viewport.height, closed: closed || isEllipse
     });
   };
 
@@ -81,10 +89,12 @@ export function extractVectorShapes(
     let cursor = 0;
     let points: Array<[number, number]> = [];
     let closed = false;
+    let curved = false;
     const flush = () => {
-      finishPath(points, closed, index * 1000 + shapes.length);
+      finishPath(points, closed, curved, index * 1000 + shapes.length);
       points = [];
       closed = false;
+      curved = false;
     };
     while (cursor < pathArgs.length) {
       const command = Number(pathArgs[cursor++]);
@@ -96,9 +106,11 @@ export function extractVectorShapes(
       } else if (command === 2 && cursor + 5 < pathArgs.length) {
         cursor += 4;
         points.push([Number(pathArgs[cursor++]), Number(pathArgs[cursor++])]);
+        curved = true;
       } else if (command === 3 && cursor + 3 < pathArgs.length) {
         cursor += 2;
         points.push([Number(pathArgs[cursor++]), Number(pathArgs[cursor++])]);
+        curved = true;
       } else if (command === 4) {
         closed = true;
         flush();

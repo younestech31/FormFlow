@@ -6,7 +6,7 @@ export interface TextFragment {
   x: number; y: number; width: number; height: number;
 }
 export interface VectorShape {
-  id: string; pageNumber: number; kind: 'rectangle' | 'line';
+  id: string; pageNumber: number; kind: 'rectangle' | 'line' | 'ellipse';
   x: number; y: number; width: number; height: number;
   pageWidth: number; pageHeight: number; closed: boolean;
 }

@@ -51,3 +51,13 @@ The first vector pass consumes PDF.js operator lists and recognizes simple, axis
 - [x] Replace the long document-editing page with a fixed-height desktop workspace and focused inspector tabs.
 - [x] Provide a responsive mobile layout without horizontal overflow.
 - [x] Verify two-page navigation, canvas/overlay alignment, tab switching, language changes, and contained scrolling with a browser-driven synthetic PDF check.
+
+## Recently completed: deterministic recognition upgrade
+
+- [x] Merge fragmented PDF text into visual lines with Arabic right-to-left reading order.
+- [x] Recognize common Arabic, French, and English form labels with bounded label-only writing areas.
+- [x] Use directional spatial scoring to associate labels with boxes, writing lines, and checkbox/radio options.
+- [x] Reconstruct empty cells from axis-aligned vector table rules while excluding text-filled cells.
+- [x] Detect radio circles and group aligned options; infer date, signature, and multiline field types.
+- [x] Extract native AcroForm widget rectangles and suppress duplicate geometry/appearance suggestions.
+- [x] Add regression tests for split text, RTL labels, table cells, radio options, decorative lines, rotated text bounds, and native widget artifacts.

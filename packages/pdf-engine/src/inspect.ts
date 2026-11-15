@@ -4,11 +4,14 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, PDFRadioGroup, PDFTextField } fr
 import { detectGeometryFields } from '@formflow/core';
 import type { FieldCandidate, TextFragment } from '@formflow/core';
 import { extractVectorShapes } from './vector-geometry';
+import { extractNativeWidgets, filterWidgetArtifacts, type NativePdfWidget } from './widgets';
+import { mapPdfTextItem } from './text-geometry';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 export interface PdfPageInspection {
   pageNumber: number; width: number; height: number; textItems: TextFragment[];
   geometryShapeCount: number; geometryCandidates: FieldCandidate[];
+  nativeWidgets: NativePdfWidget[];
 }
 export interface ExistingPdfField {
   name: string;
@@ -38,22 +41,20 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
       const textItems: TextFragment[] = [];
       content.items.forEach((item, index) => {
         if (!('str' in item) || typeof item.str !== 'string' || !item.str.trim()) return;
-        const transform = item.transform;
-        const height = Math.max(1, Math.abs(transform[3]) || item.height || 10);
-        textItems.push({
-          id: 'p' + pageNumber + '-t' + index, text: item.str, pageNumber,
-          pageWidth: viewport.width, pageHeight: viewport.height,
-          x: transform[4], y: Math.max(0, viewport.height - transform[5] - height),
-          width: Math.max(0, item.width), height
-        });
+        textItems.push(mapPdfTextItem(item, index, pageNumber, viewport.width, viewport.height, viewport));
       });
+      const annotations = await page.getAnnotations({ intent: 'display' });
+      const nativeWidgets = extractNativeWidgets(annotations, viewport, pageNumber);
       const operatorList = await page.getOperatorList();
       const vectorShapes = extractVectorShapes(operatorList, pageNumber, viewport);
-      const geometryCandidates = detectGeometryFields(vectorShapes, textItems);
+      const geometryCandidates = filterWidgetArtifacts(
+        detectGeometryFields(vectorShapes, textItems), nativeWidgets,
+        viewport.width, viewport.height
+      );
       totalTextItems += textItems.length;
       pages.push({
         pageNumber, width: viewport.width, height: viewport.height, textItems,
-        geometryShapeCount: vectorShapes.length, geometryCandidates
+        geometryShapeCount: vectorShapes.length, geometryCandidates, nativeWidgets
       });
     }
     const pdfLibDocument = await PDFDocument.load(bytes);

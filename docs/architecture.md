@@ -49,3 +49,16 @@ The web app stores field geometry and template metadata in IndexedDB. A SHA-256 
 - The preview renderer reports logical page dimensions separately from the backing-canvas dimensions. The SVG field editor therefore remains in PDF page coordinates and stays aligned with the sharper raster image.
 - Once a document is open, the desktop UI becomes a viewport-height workspace: the PDF stage stays on the left and a tabbed inspector sits on the right. Scrolling is contained in the document stage or the currently selected inspector panel rather than the entire page.
 - On narrow screens, the workspace becomes a vertical layout with a bounded PDF stage and no horizontal overflow. The inspector tabs are localized and keyboard-accessible.
+
+## Deterministic recognition pipeline (expanded)
+
+Recognition remains local and rule-based; it does not call an AI model or OCR service.
+
+1. Normalize extracted digital text, then merge adjacent PDF text runs into visual lines using baseline proximity, horizontal gaps, and direction-aware reading order. Arabic-dominant runs are assembled right-to-left; rotated text bounds are mapped using both axes of the PDF text matrix.
+2. Recognize common Arabic, French, and English form-label vocabulary as well as explicit colon-ended labels. Label association uses page, overlap, distance, orientation, and punctuation cues rather than a single nearest-text rule. Suggested label-only writing areas are bounded by neighboring text and existing controls.
+3. Classify closed vector rectangles as likely text fields or checkboxes; classify small curved circular marks as radio choices; recognize labelled writing rules; and infer date, signature, and multiline types from label/geometry cues.
+4. Reconstruct empty axis-aligned table cells from separate horizontal and vertical vector rules. A cell containing extracted text is not suggested as an empty field. Grid cells require a nearby recognizable label.
+5. Read native AcroForm widget annotations and their page-space rectangles. Suppress geometry suggestions that overlap those controls, including local-coordinate appearance artifacts found at page edges.
+6. Assign deterministic heuristic confidence scores and present candidates for human review; scores are ranking cues, not calibrated probabilities. Users can rename, move, resize, change type, or remove every suggestion.
+
+The detector does not infer the meaning of arbitrary prose. The label vocabulary is deliberately small and extendable through reviewed deterministic rules. It cannot read text in raster scans; without OCR, scanned-image labels must be entered manually. Grid reconstruction currently targets axis-aligned vector tables and does not claim support for every complex or rotated layout.

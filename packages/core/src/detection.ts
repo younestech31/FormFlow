@@ -1,114 +1,468 @@
 import type { FieldCandidate, TextFragment, VectorShape } from './types';
 
-function stableId(fragment: TextFragment, index: number) {
-  return 'candidate-' + fragment.pageNumber + '-' + Math.round(fragment.x) + '-' + index;
+const ARABIC = /[\u0600-\u06ff]/;
+const LABEL_WORDS = new Set([
+  // Common Arabic administrative form labels.
+  'الاسم', 'والاسم', 'اللقب', 'واللقب', 'العنوان', 'الولاية', 'البلدية',
+  'الهاتف', 'المحمول', 'البريد', 'الإلكتروني', 'تاريخ', 'الميلاد', 'مكان',
+  'رقم', 'الملف', 'الجنسية', 'المهنة', 'الوظيفة', 'المؤسسة', 'الوثيقة',
+  'الشهادة', 'الشهرة', 'الأب', 'الأم', 'الزوج', 'الزوجة', 'الجنس',
+  'الحالة', 'العائلية', 'المدنية', 'القسم', 'المصلحة', 'الإمضاء',
+  'التوقيع', 'المستوى', 'الدراسي', 'الدخل', 'الراتب', 'البلد',
+  // Common French labels.
+  'nom', 'prénom', 'prenom', 'adresse', 'téléphone', 'telephone',
+  'portable', 'courriel', 'email', 'date', 'naissance', 'lieu',
+  'profession', 'commune', 'wilaya', 'nationalité', 'nationalite',
+  'numéro', 'numero', 'dossier', 'signature', 'état', 'etat',
+  'civil', 'père', 'pere', 'mère', 'mere', 'filiation', 'carte',
+  'identité', 'identite', 'fonction', 'employeur', 'matricule',
+  'prénoms', 'prenoms', 'époux', 'epoux', 'épouse', 'epouse',
+  // Common English labels.
+  'name', 'surname', 'firstname', 'first', 'last', 'address',
+  'phone', 'mobile', 'email', 'date', 'birth', 'place', 'job',
+  'occupation', 'nationality', 'number', 'file', 'reference',
+  'signature', 'gender', 'marital', 'status', 'id', 'passport'
+]);
+
+function normalizeText(value: string): string {
+  return value.normalize('NFKC')
+    .replace(/[\u064b-\u065f\u0670\u0640]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-/** Conservative heuristic: suggests a text field after a short fragment ending in a colon. */
-export function detectLabelAnchors(fragments: TextFragment[]): FieldCandidate[] {
-  return fragments
-    .filter((fragment) => /^[^\n]{1,90}[:：]\s*$/.test(fragment.text.trim()))
-    .map((fragment, index) => {
-      const label = fragment.text.trim().replace(/[:：]\s*$/, '').trim();
-      const isArabicLabel = /[\u0600-\u06FF]/.test(label);
-      const leftWidth = Math.min(240, Math.max(0, fragment.x - 32));
-      const x = isArabicLabel
-        ? Math.max(0, fragment.x - leftWidth - 8)
-        : fragment.x + fragment.width + 8;
-      const width = isArabicLabel ? leftWidth : Math.max(0, fragment.pageWidth - x - 24);
-      return {
-        id: stableId(fragment, index), label, kind: 'text' as const,
-        pageNumber: fragment.pageNumber, x, y: Math.max(0, fragment.y - 2),
-        width, height: Math.max(22, fragment.height + 8), confidence: 0.35,
-        method: 'label-anchor' as const
-      };
-    })
-    .filter((candidate) => candidate.label.length > 0 && candidate.width >= 48);
+function cleanLabel(value: string): string {
+  return normalizeText(value)
+    .replace(/^[\s:：؛;,.\-–—]+|[\s:：؛;,.\-–—]+$/g, '')
+    .trim();
 }
 
-function findNearbyLabel(shape: VectorShape, fragments: TextFragment[]): string {
-  const candidates = fragments
-    .filter((fragment) => fragment.pageNumber === shape.pageNumber)
-    .map((fragment) => {
-      const right = fragment.x + fragment.width;
-      const bottom = fragment.y + fragment.height;
-      const verticalOverlap = Math.max(0, Math.min(bottom, shape.y + shape.height) - Math.max(fragment.y, shape.y));
-      const overlapRatio = verticalOverlap / Math.max(1, Math.min(fragment.height, Math.max(shape.height, 1)));
-      const gap = shape.x - right;
-      const rightGap = fragment.x - (shape.x + shape.width);
-      const isLeftLabel = gap >= -8 && gap <= 150 && overlapRatio >= 0.25;
-      const isRightLabel = rightGap >= -8 && rightGap <= 150 && overlapRatio >= 0.25;
-      const belowGap = shape.y - bottom;
-      const horizontalOverlap = Math.max(0, Math.min(right, shape.x + shape.width) - Math.max(fragment.x, shape.x));
-      const isTopLabel = belowGap >= -8 && belowGap <= 32 && horizontalOverlap >= Math.min(fragment.width, shape.width) * 0.35;
-      if (!isLeftLabel && !isRightLabel && !isTopLabel) return null;
-      const distance = isLeftLabel ? Math.max(0, gap)
-        : isRightLabel ? Math.max(0, rightGap)
-        : Math.max(0, belowGap) + 20;
-      return { text: fragment.text.trim().replace(/[:：]\s*$/, '').trim(), distance };
-    })
-    .filter((item): item is { text: string; distance: number } => Boolean(item?.text))
-    .sort((a, b) => a.distance - b.distance);
-  return candidates[0]?.text ?? '';
+function isArabic(value: string): boolean {
+  return ARABIC.test(value);
+}
+
+function labelHasCue(value: string): boolean {
+  return /[:：]\s*$/.test(value.trim());
+}
+
+function isLikelyLabel(value: string): boolean {
+  const text = cleanLabel(value);
+  if (text.length < 2 || text.length > 72) return false;
+  if (/[.!؟?]$/.test(text)) return false;
+  const words = text.toLocaleLowerCase().split(/[\s،,؛;|/]+/).filter(Boolean);
+  if (words.length === 0 || words.length > 8) return false;
+  if (labelHasCue(value)) return true;
+  const normalized = words.map((word) => word.replace(/[^\p{L}\p{N}]/gu, ''));
+  return normalized.some((word) => LABEL_WORDS.has(word));
+}
+
+interface TextLine extends TextFragment {
+  sourceIds: string[];
+  explicitCue: boolean;
+}
+
+function verticalCenter(fragment: TextFragment): number {
+  return fragment.y + fragment.height / 2;
 }
 
 /**
- * Finds likely empty form controls from vector geometry. This does not read text
- * embedded in scanned page images; it only classifies explicit PDF paths.
+ * PDF.js often splits a visible label into several text runs. Recombine runs
+ * that share a baseline and are close enough to belong to the same phrase.
+ */
+function mergeTextLines(fragments: TextFragment[]): TextLine[] {
+  const ordered = [...fragments]
+    .filter((item) => normalizeText(item.text).length > 0)
+    .sort((a, b) => a.pageNumber - b.pageNumber || verticalCenter(a) - verticalCenter(b) || a.x - b.x);
+  const groups: TextFragment[][] = [];
+
+  for (const fragment of ordered) {
+    const center = verticalCenter(fragment);
+    let bestGroup: TextFragment[] | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const group of groups) {
+      const first = group[0];
+      if (first.pageNumber !== fragment.pageNumber) continue;
+      const top = Math.min(...group.map((item) => item.y));
+      const bottom = Math.max(...group.map((item) => item.y + item.height));
+      const centerY = (top + bottom) / 2;
+      const groupHeight = Math.max(...group.map((item) => item.height));
+      const tolerance = Math.max(2.5, Math.min(groupHeight, fragment.height) * 0.42);
+      const verticalDistance = Math.abs(centerY - center);
+      if (verticalDistance > tolerance) continue;
+
+      const left = Math.min(...group.map((item) => item.x));
+      const right = Math.max(...group.map((item) => item.x + item.width));
+      const gap = Math.max(0, fragment.x - right, left - (fragment.x + fragment.width));
+      const maxGap = Math.max(18, Math.max(groupHeight, fragment.height) * 2.2);
+      if (gap > maxGap) continue;
+      const distance = verticalDistance + gap * 0.08;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestGroup = group;
+      }
+    }
+
+    if (bestGroup) bestGroup.push(fragment);
+    else groups.push([fragment]);
+  }
+
+  return groups.map((group) => {
+    const textDirectionArabic = group.filter((item) => isArabic(item.text)).length >
+      group.filter((item) => /[A-Za-z]/.test(item.text)).length;
+    const readingOrder = [...group].sort((a, b) =>
+      textDirectionArabic ? b.x - a.x : a.x - b.x
+    );
+    const left = Math.min(...group.map((item) => item.x));
+    const top = Math.min(...group.map((item) => item.y));
+    const right = Math.max(...group.map((item) => item.x + item.width));
+    const bottom = Math.max(...group.map((item) => item.y + item.height));
+    const joinedText = normalizeText(readingOrder.map((item) => item.text).join(' '));
+    return {
+      id: 'line-' + group.map((item) => item.id).join('-'),
+      sourceIds: group.map((item) => item.id),
+      text: joinedText,
+      pageNumber: group[0].pageNumber,
+      pageWidth: group[0].pageWidth,
+      pageHeight: group[0].pageHeight,
+      x: left,
+      y: top,
+      width: right - left,
+      height: Math.max(1, bottom - top),
+      explicitCue: labelHasCue(joinedText)
+    };
+  });
+}
+
+function intersectionRatio(a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }): number {
+  const width = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const height = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  return width * height / Math.max(1, Math.min(a.width * a.height, b.width * b.height));
+}
+
+function textIsInside(shape: VectorShape, lines: TextLine[]): boolean {
+  return lines.some((line) => line.pageNumber === shape.pageNumber &&
+    intersectionRatio(shape, line) >= 0.18);
+}
+
+interface LabelMatch { text: string; score: number; explicitCue: boolean; }
+
+const OPTION_WORDS = new Set([
+  'oui', 'non', 'yes', 'no', 'male', 'female', 'other', 'm', 'f',
+  'masculin', 'féminin', 'feminin', 'homme', 'femme', 'autre',
+  'نعم', 'لا', 'ذكر', 'أنثى', 'انثى', 'مذكر', 'مؤنث', 'اخرى', 'أخرى'
+]);
+
+function isShortOption(value: string): boolean {
+  const text = cleanLabel(value).toLocaleLowerCase();
+  return OPTION_WORDS.has(text);
+}
+
+function inferFieldKind(label: string, height = 24): FieldCandidate['kind'] {
+  const text = cleanLabel(label).toLocaleLowerCase();
+  if (/(date|naissance|birth|تاريخ|ميلاد)/u.test(text)) return 'date';
+  if (/(signature|signé|signer|التوقيع|الإمضاء|امضاء)/u.test(text)) return 'signature';
+  if (height >= 76) return 'multiline';
+  return 'text';
+}
+
+function findNearbyLabel(
+  shape: VectorShape,
+  lines: TextLine[],
+  allowOptions = false,
+  horizontalOnly = false
+): LabelMatch | null {
+  const matches: LabelMatch[] = [];
+  for (const line of lines) {
+    if (line.pageNumber !== shape.pageNumber ||
+        (!isLikelyLabel(line.text) && !(allowOptions && isShortOption(line.text)))) continue;
+
+    const lineRight = line.x + line.width;
+    const lineBottom = line.y + line.height;
+    const shapeRight = shape.x + shape.width;
+    const shapeBottom = shape.y + shape.height;
+    const overlapY = Math.max(0, Math.min(lineBottom, shapeBottom) - Math.max(line.y, shape.y));
+    const overlapX = Math.max(0, Math.min(lineRight, shapeRight) - Math.max(line.x, shape.x));
+    const verticalRatio = overlapY / Math.max(1, Math.min(line.height, Math.max(shape.height, 1)));
+    const leftGap = shape.x - lineRight;
+    const rightGap = line.x - shapeRight;
+    const topGap = shape.y - lineBottom;
+    const arabic = isArabic(line.text);
+
+    const leftMatch = leftGap >= -10 && leftGap <= 115 && verticalRatio >= 0.2;
+    const rightMatch = rightGap >= -10 && rightGap <= 115 && verticalRatio >= 0.2;
+    const topMatch = !horizontalOnly && topGap >= -10 && topGap <= 58 &&
+      overlapX >= Math.min(line.width, shape.width) * 0.3;
+
+    if (!leftMatch && !rightMatch && !topMatch) continue;
+
+    const verticalPenalty = Math.abs(verticalCenter(line) - (shape.y + shape.height / 2)) * 0.22;
+    const optionLabel = allowOptions && isShortOption(line.text);
+    const preferRight = arabic || optionLabel;
+    const orientationPenalty = preferRight
+      ? (rightMatch ? 0 : leftMatch ? 28 : 14)
+      : (leftMatch ? 0 : rightMatch ? 28 : 14);
+    const distance = leftMatch ? Math.max(0, leftGap)
+      : rightMatch ? Math.max(0, rightGap)
+      : Math.max(0, topGap) + 12;
+    const cueBonus = line.explicitCue ? 12 : 0;
+    const score = distance + verticalPenalty + orientationPenalty - cueBonus;
+    matches.push({ text: cleanLabel(line.text), score, explicitCue: line.explicitCue });
+  }
+
+  return matches.sort((a, b) => a.score - b.score)[0] ?? null;
+}
+
+function uniqueCoordinates(values: number[], tolerance = 2.5): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const result: number[] = [];
+  for (const value of sorted) {
+    const previous = result[result.length - 1];
+    if (previous === undefined || Math.abs(value - previous) > tolerance) result.push(value);
+    else result[result.length - 1] = (previous + value) / 2;
+  }
+  return result;
+}
+
+function lineCoversHorizontal(shape: VectorShape, y: number, x1: number, x2: number): boolean {
+  const centerY = shape.y + shape.height / 2;
+  return shape.kind === 'line' && shape.width >= 35 && shape.height <= 3.5 &&
+    Math.abs(centerY - y) <= 3 && shape.x <= x1 + 4 && shape.x + shape.width >= x2 - 4;
+}
+
+function lineCoversVertical(shape: VectorShape, x: number, y1: number, y2: number): boolean {
+  const centerX = shape.x + shape.width / 2;
+  return shape.kind === 'line' && shape.width <= 3.5 && shape.height >= 35 &&
+    Math.abs(centerX - x) <= 3 && shape.y <= y1 + 4 && shape.y + shape.height >= y2 - 4;
+}
+
+/** Reconstruct empty cells from independent horizontal and vertical rules. */
+function detectGridCells(shapes: VectorShape[], lines: TextLine[]): FieldCandidate[] {
+  const horizontal = shapes.filter((shape) =>
+    shape.kind === 'line' && shape.width >= 35 && shape.height <= 3.5
+  );
+  const vertical = shapes.filter((shape) =>
+    shape.kind === 'line' && shape.width <= 3.5 && shape.height >= 35
+  );
+  if (horizontal.length < 2 || vertical.length < 2) return [];
+
+  const xs = uniqueCoordinates(vertical.map((shape) => shape.x + shape.width / 2));
+  const ys = uniqueCoordinates(horizontal.map((shape) => shape.y + shape.height / 2));
+  const candidates: FieldCandidate[] = [];
+
+  for (let row = 0; row < ys.length - 1; row += 1) {
+    const y1 = ys[row];
+    const y2 = ys[row + 1];
+    const height = y2 - y1;
+    if (height < 14 || height > 90) continue;
+
+    for (let column = 0; column < xs.length - 1; column += 1) {
+      const x1 = xs[column];
+      const x2 = xs[column + 1];
+      const width = x2 - x1;
+      if (width < 48 || width > Math.min(shapes[0]?.pageWidth ?? 10000, 1200) * 0.88) continue;
+
+      const topEdge = horizontal.some((shape) => lineCoversHorizontal(shape, y1, x1, x2));
+      const bottomEdge = horizontal.some((shape) => lineCoversHorizontal(shape, y2, x1, x2));
+      const leftEdge = vertical.some((shape) => lineCoversVertical(shape, x1, y1, y2));
+      const rightEdge = vertical.some((shape) => lineCoversVertical(shape, x2, y1, y2));
+      if (!topEdge || !bottomEdge || !leftEdge || !rightEdge) continue;
+
+      const pageNumber = horizontal.find((shape) => lineCoversHorizontal(shape, y1, x1, x2))?.pageNumber;
+      if (!pageNumber) continue;
+      const cell: VectorShape = {
+        id: 'grid-cell-' + pageNumber + '-' + Math.round(x1) + '-' + Math.round(y1),
+        pageNumber, kind: 'rectangle', x: x1, y: y1, width, height,
+        pageWidth: horizontal[0].pageWidth, pageHeight: horizontal[0].pageHeight, closed: true
+      };
+      if (textIsInside(cell, lines)) continue;
+      const label = findNearbyLabel(cell, lines);
+      if (!label) continue;
+      candidates.push({
+        id: cell.id, label: label.text, kind: inferFieldKind(label.text, height), pageNumber,
+        x: x1 + 1, y: y1 + 1, width: Math.max(8, width - 2), height: Math.max(8, height - 2),
+        confidence: label.explicitCue ? 0.86 : 0.76, method: 'geometry'
+      });
+    }
+  }
+  return candidates;
+}
+
+function deduplicateCandidates(candidates: FieldCandidate[]): FieldCandidate[] {
+  const sorted = [...candidates].sort((a, b) => b.confidence - a.confidence);
+  const kept: FieldCandidate[] = [];
+  for (const candidate of sorted) {
+    const duplicateIndex = kept.findIndex((prior) =>
+      prior.pageNumber === candidate.pageNumber &&
+      prior.kind === candidate.kind &&
+      intersectionRatio(prior, candidate) >= 0.64
+    );
+    if (duplicateIndex < 0) kept.push(candidate);
+  }
+  return kept.sort((a, b) => a.pageNumber - b.pageNumber || a.y - b.y || a.x - b.x);
+}
+
+/**
+ * Conservative, explainable form-control detection. Text inside a box is
+ * treated as content, not as an empty input; unlabelled decorative rules are
+ * not promoted to fields.
  */
 export function detectGeometryFields(
   shapes: VectorShape[],
   fragments: TextFragment[] = []
 ): FieldCandidate[] {
+  const lines = mergeTextLines(fragments);
   const candidates: FieldCandidate[] = [];
+
   for (const shape of shapes) {
     if (shape.width <= 0 || (shape.height <= 0 && shape.kind !== 'line')) continue;
     if (shape.width >= shape.pageWidth * 0.92 && shape.height >= shape.pageHeight * 0.92) continue;
 
-    let kind: FieldCandidate['kind'] | null = null;
-    let x = shape.x;
-    let y = shape.y;
-    let width = shape.width;
-    let height = shape.height;
-    let confidence = 0;
-
-    if (shape.kind === 'rectangle' && shape.closed) {
-      const ratio = width / height;
-      if (width >= 9 && width <= 34 && height >= 9 && height <= 34 && ratio >= 0.72 && ratio <= 1.38) {
-        kind = 'checkbox';
-        confidence = 0.78;
-      } else if (width >= 55 && width <= shape.pageWidth * 0.88 && height >= 13 && height <= 70 && ratio >= 1.8) {
-        kind = 'text';
-        confidence = 0.7;
-      }
-    } else if (shape.kind === 'line' && width >= 60 && height <= 2.5) {
-      kind = 'text';
-      height = 24;
-      y = Math.max(0, y - height);
-      confidence = 0.58;
+    if (shape.kind === 'ellipse') {
+      const ratio = shape.width / Math.max(1, shape.height);
+      if (shape.width < 9 || shape.width > 34 || shape.height < 9 || shape.height > 34 ||
+          ratio < 0.72 || ratio > 1.38) continue;
+      const label = findNearbyLabel(shape, lines, true, true);
+      const alignedPeers = shapes.filter((peer) =>
+        peer.kind === 'ellipse' && peer.pageNumber === shape.pageNumber &&
+        Math.abs((peer.y + peer.height / 2) - (shape.y + shape.height / 2)) <= 14 &&
+        Math.abs(peer.x - shape.x) > 8
+      );
+      if (!label && alignedPeers.length === 0) continue;
+      candidates.push({
+        id: 'geometry-' + shape.id, label: label?.text ?? '', kind: 'radio',
+        pageNumber: shape.pageNumber, x: shape.x, y: shape.y,
+        width: shape.width, height: shape.height,
+        confidence: label ? 0.86 : 0.68, method: 'geometry'
+      });
+      continue;
     }
 
-    if (!kind) continue;
-    const label = findNearbyLabel(shape, fragments);
-    const id = 'geometry-' + shape.pageNumber + '-' + Math.round(shape.x) + '-' + Math.round(shape.y) + '-' + candidates.length;
-    candidates.push({
-      id, label, kind, pageNumber: shape.pageNumber, x, y, width, height,
-      confidence, method: 'geometry'
-    });
+    if (shape.kind === 'rectangle' && shape.closed) {
+      const ratio = shape.width / Math.max(1, shape.height);
+      if (shape.width >= 9 && shape.width <= 34 && shape.height >= 9 && shape.height <= 34 &&
+          ratio >= 0.72 && ratio <= 1.38) {
+        candidates.push({
+          id: 'geometry-' + shape.id, label: findNearbyLabel(shape, lines, true, true)?.text ?? '',
+          kind: 'checkbox', pageNumber: shape.pageNumber,
+          x: shape.x, y: shape.y, width: shape.width, height: shape.height,
+          confidence: 0.88, method: 'geometry'
+        });
+        continue;
+      }
+
+      if (shape.width < 52 || shape.width > shape.pageWidth * 0.88 ||
+          shape.height < 13 || shape.height > 220 || ratio < 1.2) continue;
+      if (textIsInside(shape, lines)) continue;
+
+      const label = findNearbyLabel(shape, lines);
+      candidates.push({
+        id: 'geometry-' + shape.id, label: label?.text ?? '', kind: inferFieldKind(label?.text ?? '', shape.height),
+        pageNumber: shape.pageNumber, x: shape.x, y: shape.y,
+        width: shape.width, height: shape.height,
+        confidence: label ? (label.explicitCue ? 0.9 : 0.82) : 0.54,
+        method: 'geometry'
+      });
+      continue;
+    }
+
+    if (shape.kind === 'line' && shape.width >= 60 && shape.height <= 2.5 &&
+        shape.width <= shape.pageWidth * 0.88) {
+      const inputArea: VectorShape = {
+        ...shape, x: shape.x, y: Math.max(0, shape.y - 22), height: 21
+      };
+      const label = findNearbyLabel(inputArea, lines);
+      if (!label) continue;
+      candidates.push({
+        id: 'geometry-' + shape.id, label: label.text, kind: inferFieldKind(label.text, inputArea.height),
+        pageNumber: shape.pageNumber, x: shape.x, y: inputArea.y,
+        width: shape.width, height: inputArea.height,
+        confidence: label.explicitCue ? 0.78 : 0.68,
+        method: 'geometry'
+      });
+    }
   }
 
-  // Suppress near-identical detections caused by adjacent or overlapping PDF paths.
-  return candidates.filter((candidate, index) => {
-    const duplicate = candidates.slice(0, index).some((prior) => {
-      if (prior.pageNumber !== candidate.pageNumber || prior.kind !== candidate.kind) return false;
-      const intersectionWidth = Math.max(0, Math.min(prior.x + prior.width, candidate.x + candidate.width) - Math.max(prior.x, candidate.x));
-      const intersectionHeight = Math.max(0, Math.min(prior.y + prior.height, candidate.y + candidate.height) - Math.max(prior.y, candidate.y));
-      const intersection = intersectionWidth * intersectionHeight;
-      const smaller = Math.min(prior.width * prior.height, candidate.width * candidate.height);
-      return smaller > 0 && intersection / smaller > 0.82;
-    });
-    return !duplicate;
-  }).slice(0, 120);
+  candidates.push(...detectGridCells(shapes, lines));
+  const deduplicated = deduplicateCandidates(candidates);
+  return deduplicated.map((candidate) => {
+    if (candidate.kind !== 'radio') return candidate;
+    const rowPeers = deduplicated.filter((peer) =>
+      peer.kind === 'radio' && peer.pageNumber === candidate.pageNumber &&
+      Math.abs((peer.y + peer.height / 2) - (candidate.y + candidate.height / 2)) <= 14
+    );
+    if (rowPeers.length < 2) return candidate;
+    const groupLine = Math.round((candidate.y + candidate.height / 2) / 20);
+    return { ...candidate, group: 'radio-page-' + candidate.pageNumber + '-row-' + groupLine };
+  });
+}
+
+/**
+ * Infer a bounded blank area next to a recognizable text label when no vector
+ * border or underline was found. Existing geometric detections are supplied so
+ * the same field is not suggested twice.
+ */
+export function detectLabelAnchors(
+  fragments: TextFragment[],
+  existingFields: Array<Pick<FieldCandidate, 'pageNumber' | 'x' | 'y' | 'width' | 'height'>> = []
+): FieldCandidate[] {
+  const lines = mergeTextLines(fragments);
+  const candidates: FieldCandidate[] = [];
+
+  for (const line of lines) {
+    if (!isLikelyLabel(line.text)) continue;
+    const arabic = isArabic(line.text);
+    const maxWidth = Math.min(300, line.pageWidth * 0.52);
+    const sameRow = lines.filter((other) =>
+      other.pageNumber === line.pageNumber && other.id !== line.id &&
+      Math.abs(verticalCenter(other) - verticalCenter(line)) <= Math.max(10, line.height * 0.95)
+    );
+
+    let x: number;
+    let width: number;
+    if (arabic) {
+      const nearestLeftBlocker = sameRow
+        .filter((other) => other.x + other.width <= line.x + 4)
+        .map((other) => other.x + other.width)
+        .sort((a, b) => b - a)[0];
+      const right = Math.max(0, line.x - 8);
+      const left = Math.max(nearestLeftBlocker === undefined ? 16 : nearestLeftBlocker + 8, right - maxWidth);
+      x = left;
+      width = right - left;
+    } else {
+      const nearestRightBlocker = sameRow
+        .filter((other) => other.x >= line.x + line.width - 4)
+        .map((other) => other.x)
+        .sort((a, b) => a - b)[0];
+      x = Math.min(line.pageWidth - 16, line.x + line.width + 8);
+      const right = Math.min(
+        line.pageWidth - 16,
+        nearestRightBlocker === undefined ? x + maxWidth : nearestRightBlocker - 8
+      );
+      width = right - x;
+    }
+
+    if (width < 56) continue;
+    const y = Math.max(0, verticalCenter(line) - Math.max(11, line.height * 0.85));
+    const candidate = {
+      id: 'candidate-' + line.pageNumber + '-' + line.sourceIds.join('-'),
+      label: cleanLabel(line.text), kind: inferFieldKind(line.text) as FieldCandidate['kind'],
+      pageNumber: line.pageNumber, x, y, width,
+      height: Math.max(20, line.height * 1.7),
+      confidence: line.explicitCue ? 0.56 : 0.46,
+      method: 'label-anchor' as const
+    };
+
+    const occupied = existingFields.some((field) =>
+      field.pageNumber === candidate.pageNumber &&
+      intersectionRatio(field, candidate) >= 0.22
+    );
+    if (occupied) continue;
+    candidates.push(candidate);
+  }
+
+  return deduplicateCandidates(candidates);
 }
 
 export function clampFieldRectangle(
