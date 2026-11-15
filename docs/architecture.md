@@ -7,7 +7,7 @@
 ## Shared layers
 
 - `packages/core`: document, page, form-field and candidate types; deterministic, explainable heuristics.
-- `packages/pdf-engine`: PDF.js page/text inspection and pdf-lib AcroForm reading/writing.
+- `packages/pdf-engine`: PDF.js page/text inspection and image rendering, local Tesseract.js OCR, and pdf-lib AcroForm reading/writing.
 - `packages/local-storage`: IndexedDB-backed reusable template persistence.
 - Platform shells: native file picking, filesystem, printing and packaging adapters only.
 
@@ -19,9 +19,12 @@
 4. Associate nearby labels and candidate writing areas with deterministic spatial rules.
 5. Show suggestions with method and confidence; never silently confirm a candidate.
 6. On the first-page preview, let the user add, rename, move, resize, change type, or remove candidate fields. The current editor is an in-memory review surface.
-7. Next, save the edited geometry in a reusable local template, fill values and export the PDF.
+7. For raster-only pages, render one PDF page to a bounded-resolution canvas and optionally run the bundled local OCR worker.
+8. Map recognized line boxes back to PDF page coordinates; show the source text, confidence score, and bounding boxes for human review and correction.
+9. Use reviewed OCR text with the same deterministic spatial label rules as native PDF text. Keep low-confidence OCR text visible for correction but exclude it from automatic field-label inference until the user edits the line.
+10. Save reviewed geometry in a reusable local template, fill values, and export the PDF.
 
-No OCR is included. Scanned-image text must be entered manually unless a non-OCR approach is later agreed.
+OCR is optional and page-scoped. Text-layer extraction remains the first path for born-digital PDFs, avoiding unnecessary image rendering and OCR. OCR output is probabilistic and is never silently treated as verified legal or identity data.
 
 ## Platform parity
 
@@ -29,7 +32,13 @@ All field logic and screen flows belong in shared packages. Differences are limi
 
 ## Privacy
 
-No server, account, cloud database, telemetry, or paid API is required for core workflows. Documents remain local by default.
+No server, account, cloud database, telemetry, or paid API is required for core workflows. Documents remain local by default. The OCR runtime, WASM core, and Arabic/French/English trained data are served as same-origin static assets; after the runtime and selected models have been loaded once, the service worker and local OCR cache support subsequent offline use. The first OCR use requires those assets to be available on the device.
+
+## Local OCR runtime
+
+`Tesseract.js` runs the Tesseract LSTM engine through WebAssembly in a dedicated worker. `scripts/prepare-ocr-assets.mjs` copies the pinned worker/core binaries and downloads pinned `tessdata_fast` Arabic (`ara`), French (`fra`), and English (`eng`) models at build time. No OCR provider is contacted while recognizing a document. A single worker is reused and language packs are switched with worker reinitialization. Each OCR request renders one page at approximately 220 DPI, capped at a 2,800-pixel long edge to limit memory usage on office computers. The OCR line boxes are mapped back to the PDF.js page coordinate system.
+
+Tesseract confidence values are heuristic engine scores, not calibrated probabilities. Text below the configured 45% threshold is excluded from automatic label matching until a user edits/reviews the line; that explicit edit marks the line as reviewed. Scanned page review remains mandatory; this integration has not yet been benchmarked against a representative corpus of real Algerian administrative forms. See [OCR implementation and limitations](ocr.md).
 
 ## Offline web shell
 
