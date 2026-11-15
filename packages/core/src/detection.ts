@@ -240,7 +240,7 @@ function lineCoversVertical(shape: VectorShape, x: number, y1: number, y2: numbe
 }
 
 /** Reconstruct empty cells from independent horizontal and vertical rules. */
-function detectGridCells(shapes: VectorShape[], lines: TextLine[]): FieldCandidate[] {
+function detectGridCellsOnPage(shapes: VectorShape[], lines: TextLine[]): FieldCandidate[] {
   const horizontal = shapes.filter((shape) =>
     shape.kind === 'line' && shape.width >= 35 && shape.height <= 3.5
   );
@@ -289,6 +289,30 @@ function detectGridCells(shapes: VectorShape[], lines: TextLine[]): FieldCandida
     }
   }
   return candidates;
+}
+
+/**
+ * Grid reconstruction is page-local: vector paths from different PDF pages
+ * must never combine to form a synthetic cell at matching coordinates.
+ */
+function detectGridCells(shapes: VectorShape[], lines: TextLine[]): FieldCandidate[] {
+  const shapesByPage = new Map<number, VectorShape[]>();
+  const linesByPage = new Map<number, TextLine[]>();
+
+  for (const shape of shapes) {
+    const pageShapes = shapesByPage.get(shape.pageNumber) ?? [];
+    pageShapes.push(shape);
+    shapesByPage.set(shape.pageNumber, pageShapes);
+  }
+  for (const line of lines) {
+    const pageLines = linesByPage.get(line.pageNumber) ?? [];
+    pageLines.push(line);
+    linesByPage.set(line.pageNumber, pageLines);
+  }
+
+  return [...shapesByPage.entries()].flatMap(([pageNumber, pageShapes]) =>
+    detectGridCellsOnPage(pageShapes, linesByPage.get(pageNumber) ?? [])
+  );
 }
 
 function isChoiceGroupLabel(label: string): boolean {
