@@ -354,3 +354,50 @@ test('keeps a long unlabelled segmented sequence as one lower-confidence suggest
   assert.equal(candidates[0].kind, 'text');
   assert.ok(candidates[0].confidence < 0.7);
 });
+
+test('never combines partial table edges from different PDF pages', () => {
+  const partialShapes = [
+    { ...page, id: 'page-one-top', kind: 'line', x: 100, y: 100, width: 130, height: 0, closed: false },
+    { ...page, id: 'page-one-left', kind: 'line', x: 100, y: 100, width: 0, height: 40, closed: false },
+    { ...page, pageNumber: 2, id: 'page-two-bottom', kind: 'line', x: 100, y: 140, width: 130, height: 0, closed: false },
+    { ...page, pageNumber: 2, id: 'page-two-right', kind: 'line', x: 230, y: 100, width: 0, height: 40, closed: false }
+  ];
+  const label = {
+    ...page, id: 'page-one-label', text: 'Name',
+    x: 30, y: 108, width: 50, height: 12
+  };
+
+  const candidates = detectGeometryFields(partialShapes, [label]);
+  assert.deepEqual(candidates.filter((candidate) => candidate.id.startsWith('grid-cell-')), []);
+});
+
+
+test('reconstructs complete tables independently on repeated pages', () => {
+  const shapes = [];
+  for (const pageNumber of [1, 2]) {
+    for (const y of [200, 240]) {
+      shapes.push({
+        pageNumber, pageWidth: 600, pageHeight: 800,
+        id: 'p' + pageNumber + '-h-' + y, kind: 'line',
+        x: 100, y, width: 150, height: 0, closed: false
+      });
+    }
+    for (const x of [100, 250]) {
+      shapes.push({
+        pageNumber, pageWidth: 600, pageHeight: 800,
+        id: 'p' + pageNumber + '-v-' + x, kind: 'line',
+        x, y: 200, width: 0, height: 40, closed: false
+      });
+    }
+  }
+  const text = [
+    { ...page, pageNumber: 1, id: 'page-one-label', text: 'Name', x: 30, y: 210, width: 50, height: 12 },
+    { ...page, pageNumber: 2, id: 'page-two-label', text: 'Address', x: 30, y: 210, width: 55, height: 12 }
+  ];
+
+  const candidates = detectGeometryFields(shapes, text)
+    .filter((candidate) => candidate.id.startsWith('grid-cell-'));
+  assert.equal(candidates.length, 2);
+  assert.deepEqual(candidates.map((candidate) => candidate.pageNumber), [1, 2]);
+  assert.deepEqual(candidates.map((candidate) => candidate.label), ['Name', 'Address']);
+});

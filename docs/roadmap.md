@@ -62,3 +62,5 @@ The first vector pass consumes PDF.js operator lists and recognizes simple, axis
 - [x] Extract native AcroForm widget rectangles and suppress duplicate geometry/appearance suggestions.
 - [x] Add regression tests for split text, RTL labels, table cells, radio options, decorative lines, rotated text bounds, and native widget artifacts.
 - [x] Group segmented identity/registration digit boxes into one editable field while preserving checkbox choice groups and ignoring filled sequences.
+
+- [x] Isolate table-grid reconstruction by PDF page to prevent vector edges on different pages from creating ghost cells.
