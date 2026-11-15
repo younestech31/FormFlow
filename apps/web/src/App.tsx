@@ -99,7 +99,8 @@ const messages = {
     planned: 'En développement', language: 'Langue', saved: 'Le fichier n’a pas été envoyé sur Internet.'
   },
   en: {
-    eyebrow: 'Local document workspace', title: 'Your forms, in one place.',    intro: 'Inspect PDF text, fields, and geometric shapes locally without uploading documents to a server.',
+    eyebrow: 'Local document workspace', title: 'Your forms, in one place.',
+    intro: 'Inspect PDF text, fields, and geometric shapes locally without uploading documents to a server.',
     importTitle: 'Start with a PDF', importHint: 'Choose a file. Processing happens locally.',
     choose: 'Choose PDF', privacy: 'Your files stay on your device', local: 'Local processing',
     offline: 'Designed to work offline after loading', noAi: 'Geometry rules, no AI or OCR',
@@ -201,7 +202,8 @@ function App() {
   const [nativeFieldValues, setNativeFieldValues] = useState<Record<string, string | boolean>>({});
   const [activeFingerprint, setActiveFingerprint] = useState('');
   const [localTemplates, setLocalTemplates] = useState<FormTemplate[]>([]);
-  const [templateName, setTemplateName] = useState('');  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateStatus, setTemplateStatus] = useState<MessageKey | ''>('');
   const [exportStatus, setExportStatus] = useState<MessageKey | ''>('');
   const [exporting, setExporting] = useState(false);
@@ -329,7 +331,8 @@ function App() {
     if (!field) return;
     event.preventDefault();
     const point = pagePoint(event);
-    event.currentTarget.setPointerCapture(event.pointerId);    setSelectedFieldId(field.id);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setSelectedFieldId(field.id);
     dragRef.current = {
       id: field.id, pointerId: event.pointerId,
       mode: target.closest('[data-resize-handle]') ? 'resize' : 'move',
@@ -428,7 +431,8 @@ function App() {
       setFieldValues((current) => {
         const next = { ...current };
         editableFields.filter((field) =>
-          field.kind === 'radio' &&          (field.group || 'page-' + field.pageNumber + '-radio') === group
+          field.kind === 'radio' &&
+          (field.group || 'page-' + field.pageNumber + '-radio') === group
         ).forEach((field) => { next[field.id] = false; });
         next[id] = true;
         return next;
@@ -527,7 +531,8 @@ function App() {
             <Metric label={t.geometryCount} value={geometrySuggestions.length} />
           </div>
           <section className="preview-card">
-            <div className="preview-heading">              <div><h3>{t.previewTitle}</h3><p>{t.previewInfo}</p></div>
+            <div className="preview-heading">
+              <div><h3>{t.previewTitle}</h3><p>{t.previewInfo}</p></div>
               <div className="page-navigation">
                 <button className="secondary-button" type="button" disabled={currentPage <= 1}
                   onClick={() => { setPreviewSize(null); setCurrentPage((page) => Math.max(1, page - 1)); }}>{t.previousPage}</button>
@@ -644,7 +649,8 @@ function App() {
                       <input value={field.label} onChange={(event) => updateField(field.id, { label: event.target.value })}
                         onFocus={() => setSelectedFieldId(field.id)} />
                     </label>
-                    <label>                      <span>{t.fieldType}</span>
+                    <label>
+                      <span>{t.fieldType}</span>
                       <select value={field.kind} onChange={(event) => updateField(field.id, { kind: event.target.value as FieldCandidate['kind'] })}
                         onFocus={() => setSelectedFieldId(field.id)}>
                         <option value="text">{t.textType}</option>
@@ -718,6 +724,7 @@ function App() {
             <p className="notice">{t.caveat}</p>
             {suggestions.slice(0, 12).map((item) => <span className="suggestion-chip" key={item.id}>{item.label || (item.kind === 'checkbox' ? t.geometryCheckbox : t.geometryField)}</span>)}
           </div>}
+            </aside>
         </section>
       )}
       <section className="features-section">
