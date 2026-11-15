@@ -264,18 +264,15 @@ function App() {
     }
     const frame = previewFrameRef.current;
     if (!frame) return;
-
     const updateWidth = () => {
       const width = Math.round(frame.getBoundingClientRect().width);
       if (width > 0) setPreviewWidth((current) => Math.abs(current - width) < 20 ? current : width);
     };
-
     updateWidth();
     if (typeof ResizeObserver === 'undefined') {
       window.addEventListener('resize', updateWidth);
       return () => window.removeEventListener('resize', updateWidth);
     }
-
     const observer = new ResizeObserver(updateWidth);
     observer.observe(frame);
     return () => observer.disconnect();
@@ -285,13 +282,11 @@ function App() {
     if (!analysis || !activeFile || !previewCanvasRef.current || previewWidth <= 0) return;
     const pageInfo = analysis.pages.find((page) => page.pageNumber === currentPage);
     if (!pageInfo) return;
-
     let cancelled = false;
     const targetCanvas = previewCanvasRef.current;
     const stagingCanvas = document.createElement('canvas');
     setPreviewError('');
     setPreviewSize(null);
-
     import('@formflow/pdf-engine').then(({ renderPdfPage, getPdfRenderScale }) => {
       const scale = getPdfRenderScale(pageInfo.width, pageInfo.height, previewWidth, window.devicePixelRatio || 1);
       return renderPdfPage(activeFile, currentPage, stagingCanvas, scale);
@@ -718,13 +713,13 @@ function App() {
               </button>
               {exportStatus && <p className="template-status" role="status">{t[exportStatus]}</p>}
             </div>}
-          </section>
-          {analysis.textItemCount === 0 && <p className="notice" hidden={activeInspectorTab !== 'fields'}>{t.noText}</p>}
-          {suggestions.length > 0 && <div className="suggestion-list" hidden={activeInspectorTab !== 'fields'}>
-            <p className="notice">{t.caveat}</p>
-            {suggestions.slice(0, 12).map((item) => <span className="suggestion-chip" key={item.id}>{item.label || (item.kind === 'checkbox' ? t.geometryCheckbox : t.geometryField)}</span>)}
-          </div>}
+            {analysis.textItemCount === 0 && <p className="notice" hidden={activeInspectorTab !== 'fields'}>{t.noText}</p>}
+            {suggestions.length > 0 && <div className="suggestion-list" hidden={activeInspectorTab !== 'fields'}>
+              <p className="notice">{t.caveat}</p>
+              {suggestions.slice(0, 12).map((item) => <span className="suggestion-chip" key={item.id}>{item.label || (item.kind === 'checkbox' ? t.geometryCheckbox : t.geometryField)}</span>)}
+            </div>}
             </aside>
+          </section>
         </section>
       )}
       <section className="features-section">
