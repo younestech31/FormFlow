@@ -4,6 +4,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { extractVectorShapes } from '../src/vector-geometry.ts';
 import { detectGeometryFields } from '../../core/src/detection.ts';
+import { mapPdfTextItem } from '../src/text-geometry.ts';
 
 test('extracts PDF vector rectangles, checkboxes, and underlines in viewport coordinates', async () => {
   const pdf = await PDFDocument.create();
@@ -55,6 +56,51 @@ test('extracts PDF vector rectangles, checkboxes, and underlines in viewport coo
     const withoutDigitalLabels = detectGeometryFields(shapes);
     assert.equal(withoutDigitalLabels.length, 4);
     assert.equal(withoutDigitalLabels.filter((candidate) => candidate.kind === 'radio').length, 2);
+  } finally {
+    await task.destroy();
+  }
+});
+
+
+test('recognizes segmented digit fields from actual PDF vector paths', async () => {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([600, 800]);
+  page.drawText('Numéro de dossier :', { x: 20, y: 502, size: 10 });
+  for (let index = 0; index < 8; index += 1) {
+    page.drawRectangle({
+      x: 160 + index * 17,
+      y: 500,
+      width: 14,
+      height: 16,
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 0.8
+    });
+  }
+
+  const task = pdfjs.getDocument({ data: await pdf.save() });
+  const document = await task.promise;
+  try {
+    const pdfPage = await document.getPage(1);
+    const viewport = pdfPage.getViewport({ scale: 1 });
+    const shapes = extractVectorShapes(await pdfPage.getOperatorList(), 1, viewport);
+    const content = await pdfPage.getTextContent();
+    const fragments = content.items.flatMap((item, index) => {
+      if (!('str' in item) || !item.str.trim()) return [];
+      return [mapPdfTextItem(
+        item,
+        index,
+        1,
+        viewport.width,
+        viewport.height,
+        viewport
+      )];
+    });
+
+    const candidates = detectGeometryFields(shapes, fragments);
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].kind, 'text');
+    assert.equal(candidates[0].label, 'Numéro de dossier');
+    assert.equal(candidates[0].width, 14 * 8 + 3 * 7);
   } finally {
     await task.destroy();
   }

@@ -58,6 +58,7 @@ function isLikelyLabel(value: string): boolean {
 
 interface TextLine extends TextFragment {
   sourceIds: string[];
+  sourceFragments: TextFragment[];
   explicitCue: boolean;
 }
 
@@ -121,6 +122,7 @@ function mergeTextLines(fragments: TextFragment[]): TextLine[] {
     return {
       id: 'line-' + group.map((item) => item.id).join('-'),
       sourceIds: group.map((item) => item.id),
+      sourceFragments: group,
       text: joinedText,
       pageNumber: group[0].pageNumber,
       pageWidth: group[0].pageWidth,
@@ -143,7 +145,7 @@ function intersectionRatio(a: { x: number; y: number; width: number; height: num
 
 function textIsInside(shape: VectorShape, lines: TextLine[]): boolean {
   return lines.some((line) => line.pageNumber === shape.pageNumber &&
-    intersectionRatio(shape, line) >= 0.18);
+    line.sourceFragments.some((fragment) => intersectionRatio(shape, fragment) >= 0.18));
 }
 
 interface LabelMatch { text: string; score: number; explicitCue: boolean; }
@@ -289,6 +291,145 @@ function detectGridCells(shapes: VectorShape[], lines: TextLine[]): FieldCandida
   return candidates;
 }
 
+function isChoiceGroupLabel(label: string): boolean {
+  return /(gender|sex|genre|marital|état\s+civil|etat\s+civil|situation\s+(familiale|matrimoniale)|الجنس|الحالة\s+(الاجتماعية|العائلية))/iu.test(label);
+}
+
+function segmentedCellGapAllowed(left: VectorShape, right: VectorShape): boolean {
+  const gap = right.x - (left.x + left.width);
+  const referenceSize = Math.min(left.width, left.height, right.width, right.height);
+  const widthRatio = left.width / Math.max(1, right.width);
+  const heightRatio = left.height / Math.max(1, right.height);
+  const centerDelta = Math.abs(
+    (left.y + left.height / 2) - (right.y + right.height / 2)
+  );
+
+  return gap >= -2 && gap <= Math.min(8, Math.max(3, referenceSize * 0.42)) &&
+    widthRatio >= 0.72 && widthRatio <= 1.38 &&
+    heightRatio >= 0.72 && heightRatio <= 1.38 &&
+    centerDelta <= Math.max(2.5, referenceSize * 0.22);
+}
+
+interface SegmentedFieldResult {
+  candidates: FieldCandidate[];
+  consumedShapeIds: Set<string>;
+}
+
+/**
+ * Digit boxes in identity, registration, and reference-number fields are often
+ * drawn as a tightly packed row of small rectangles. Treat a coherent run as
+ * one editable text field rather than several unrelated checkboxes.
+ */
+function detectSegmentedInputFields(
+  shapes: VectorShape[],
+  lines: TextLine[]
+): SegmentedFieldResult {
+  const smallBoxes = shapes
+    .filter((shape) => shape.kind === 'rectangle' && shape.closed)
+    .filter((shape) => {
+      const ratio = shape.width / Math.max(1, shape.height);
+      return shape.width >= 9 && shape.width <= 34 &&
+        shape.height >= 9 && shape.height <= 34 &&
+        ratio >= 0.72 && ratio <= 1.38;
+    })
+    .sort((a, b) =>
+      a.pageNumber - b.pageNumber ||
+      (a.y + a.height / 2) - (b.y + b.height / 2) ||
+      a.x - b.x
+    );
+
+  const rows: VectorShape[][] = [];
+  for (const box of smallBoxes) {
+    const center = box.y + box.height / 2;
+    const lastRow = rows[rows.length - 1];
+    if (lastRow && lastRow[0].pageNumber === box.pageNumber) {
+      const reference = lastRow[0];
+      const rowCenter = lastRow.reduce((sum, item) => sum + item.y + item.height / 2, 0) / lastRow.length;
+      const tolerance = Math.max(2.5, Math.min(box.height, reference.height) * 0.22);
+      if (Math.abs(rowCenter - center) <= tolerance) {
+        lastRow.push(box);
+        continue;
+      }
+    }
+    rows.push([box]);
+  }
+
+  const candidates: FieldCandidate[] = [];
+  const consumedShapeIds = new Set<string>();
+
+  for (const row of rows) {
+    const ordered = [...row].sort((a, b) => a.x - b.x);
+    let run: VectorShape[] = [];
+
+    const flushRun = () => {
+      if (run.length < 4) {
+        run = [];
+        return;
+      }
+
+      const left = Math.min(...run.map((item) => item.x));
+      const top = Math.min(...run.map((item) => item.y));
+      const right = Math.max(...run.map((item) => item.x + item.width));
+      const bottom = Math.max(...run.map((item) => item.y + item.height));
+      const band: VectorShape = {
+        ...run[0],
+        id: 'segmented-band-' + run.map((item) => item.id).join('-'),
+        kind: 'rectangle',
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+        closed: true
+      };
+
+      // A printed value inside a digit box means this is not an empty field.
+      if (textIsInside(band, lines)) {
+        run.forEach((item) => consumedShapeIds.add(item.id));
+        run = [];
+        return;
+      }
+
+      const label = findNearbyLabel(band, lines);
+      const labelText = label?.text ?? '';
+      if (labelText && isChoiceGroupLabel(labelText)) {
+        run = [];
+        return;
+      }
+
+      // Four or five boxes need a meaningful label. Six or more form a strong
+      // enough geometric sequence to remain a lower-confidence suggestion.
+      if (!label && run.length < 6) {
+        run = [];
+        return;
+      }
+
+      candidates.push({
+        id: band.id,
+        label: labelText,
+        kind: inferFieldKind(labelText, band.height),
+        pageNumber: band.pageNumber,
+        x: band.x,
+        y: band.y,
+        width: band.width,
+        height: band.height,
+        confidence: label ? (label.explicitCue ? 0.92 : 0.86) : 0.62,
+        method: 'geometry'
+      });
+      run.forEach((item) => consumedShapeIds.add(item.id));
+      run = [];
+    };
+
+    for (const box of ordered) {
+      const previous = run[run.length - 1];
+      if (previous && !segmentedCellGapAllowed(previous, box)) flushRun();
+      run.push(box);
+    }
+    flushRun();
+  }
+
+  return { candidates, consumedShapeIds };
+}
+
 function deduplicateCandidates(candidates: FieldCandidate[]): FieldCandidate[] {
   const sorted = [...candidates].sort((a, b) => b.confidence - a.confidence);
   const kept: FieldCandidate[] = [];
@@ -314,8 +455,12 @@ export function detectGeometryFields(
 ): FieldCandidate[] {
   const lines = mergeTextLines(fragments);
   const candidates: FieldCandidate[] = [];
+  const segmented = detectSegmentedInputFields(shapes, lines);
+  const consumedShapeIds = segmented.consumedShapeIds;
+  candidates.push(...segmented.candidates);
 
   for (const shape of shapes) {
+    if (consumedShapeIds.has(shape.id)) continue;
     if (shape.width <= 0 || (shape.height <= 0 && shape.kind !== 'line')) continue;
     if (shape.width >= shape.pageWidth * 0.92 && shape.height >= shape.pageHeight * 0.92) continue;
 
@@ -343,6 +488,7 @@ export function detectGeometryFields(
       const ratio = shape.width / Math.max(1, shape.height);
       if (shape.width >= 9 && shape.width <= 34 && shape.height >= 9 && shape.height <= 34 &&
           ratio >= 0.72 && ratio <= 1.38) {
+        if (textIsInside(shape, lines)) continue;
         candidates.push({
           id: 'geometry-' + shape.id, label: findNearbyLabel(shape, lines, true, true)?.text ?? '',
           kind: 'checkbox', pageNumber: shape.pageNumber,
