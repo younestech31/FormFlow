@@ -226,3 +226,131 @@ test('clamps dragged and resized fields to the page boundaries', () => {
     { x: 0, y: 770, width: 240, height: 30 }
   );
 });
+
+
+test('groups tightly packed identity-number cells into one labelled text field', () => {
+  const cells = Array.from({ length: 18 }, (_, index) => ({
+    ...page,
+    id: 'nin-cell-' + index,
+    kind: 'rectangle',
+    x: 60 + index * 17,
+    y: 300 + (index % 3 === 0 ? 0.4 : 0),
+    width: 14,
+    height: 16,
+    closed: true
+  }));
+  const label = {
+    ...page, id: 'nin-label', text: 'رقم التعريف الوطني:',
+    x: 372, y: 302, width: 124, height: 12
+  };
+
+  const candidates = detectGeometryFields(cells, [label]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, 'text');
+  assert.equal(candidates[0].label, 'رقم التعريف الوطني');
+  assert.equal(candidates[0].x, 60);
+  assert.equal(candidates[0].width, 14 * 18 + 3 * 17);
+  assert.ok(candidates[0].confidence >= 0.9);
+});
+
+test('groups French registration-number boxes and preserves date semantics', () => {
+  const cells = Array.from({ length: 8 }, (_, index) => ({
+    ...page,
+    id: 'date-cell-' + index,
+    kind: 'rectangle',
+    x: 150 + index * 17,
+    y: 300,
+    width: 14,
+    height: 16,
+    closed: true
+  }));
+  const label = {
+    ...page, id: 'date-label', text: 'Date de naissance :',
+    x: 32, y: 302, width: 105, height: 12
+  };
+
+  const candidates = detectGeometryFields(cells, [label]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, 'date');
+  assert.equal(candidates[0].label, 'Date de naissance');
+});
+
+test('does not merge spaced checkbox options into a segmented text field', () => {
+  const choices = Array.from({ length: 4 }, (_, index) => ({
+    ...page,
+    id: 'choice-' + index,
+    kind: 'rectangle',
+    x: 30 + index * 44,
+    y: 300,
+    width: 14,
+    height: 14,
+    closed: true
+  }));
+
+  const candidates = detectGeometryFields(choices);
+  assert.equal(candidates.length, 4);
+  assert.ok(candidates.every((candidate) => candidate.kind === 'checkbox'));
+});
+
+test('keeps tightly packed gender choices as checkboxes instead of a digit field', () => {
+  const choices = Array.from({ length: 4 }, (_, index) => ({
+    ...page,
+    id: 'gender-choice-' + index,
+    kind: 'rectangle',
+    x: 90 + index * 17,
+    y: 300,
+    width: 14,
+    height: 14,
+    closed: true
+  }));
+  const label = {
+    ...page, id: 'gender-label', text: 'Genre :',
+    x: 35, y: 302, width: 42, height: 12
+  };
+
+  const candidates = detectGeometryFields(choices, [label]);
+  assert.equal(candidates.length, 4);
+  assert.ok(candidates.every((candidate) => candidate.kind === 'checkbox'));
+});
+
+test('does not suggest filled digit cells as empty checkboxes or text fields', () => {
+  const cells = Array.from({ length: 8 }, (_, index) => ({
+    ...page,
+    id: 'filled-cell-' + index,
+    kind: 'rectangle',
+    x: 150 + index * 17,
+    y: 300,
+    width: 14,
+    height: 16,
+    closed: true
+  }));
+  const label = {
+    ...page, id: 'registration-label', text: 'N° d’identification :',
+    x: 24, y: 302, width: 116, height: 12
+  };
+  const printedDigit = {
+    ...page, id: 'printed-digit', text: '4',
+    x: 154, y: 303, width: 5, height: 9
+  };
+
+  assert.deepEqual(detectGeometryFields(cells, [label, printedDigit]), []);
+});
+
+test('keeps a long unlabelled segmented sequence as one lower-confidence suggestion', () => {
+  const cells = Array.from({ length: 6 }, (_, index) => ({
+    ...page,
+    id: 'anonymous-cell-' + index,
+    kind: 'rectangle',
+    x: 100 + index * 17,
+    y: 300,
+    width: 14,
+    height: 16,
+    closed: true
+  }));
+
+  const candidates = detectGeometryFields(cells);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].label, '');
+  assert.equal(candidates[0].kind, 'text');
+  assert.ok(candidates[0].confidence < 0.7);
+});
