@@ -25,4 +25,29 @@
 
 ## Milestone 3 â€” fill and export
 - [x] Insert values for custom overlay fields into a flattened PDF export (including Arabic shaping and bidirectional layout).
-- [x] Native¶»§q«^
+- [x] Native AcroForm value controls for text, checkbox, dropdown and radio fields.
+- [x] Flattened PDF export for text, multiline text, checkbox and radio overlay values.
+- [ ] Additional editable/flattened export options and page-rotation support.
+- [ ] Optional local personal profile, with review before insertion.
+- [x] Arabic/RTL shaping, IBM Plex Sans Arabic font embedding, and PDF text extraction tests for custom overlay fields.
+
+## Milestone 4 â€” parity and quality
+- [x] Shared test suite for detection, field geometry, templates and export.
+- [ ] Android and desktop filesystem adapters.
+- [ ] Printing, accessibility and offline tests on all targets.
+- [ ] User documentation and release packaging.
+
+## Explicit non-goals
+AI/ML recognition, OCR, paid APIs, subscriptions, mandatory accounts, and cloud document storage.
+
+## Geometry detection scope
+
+The first vector pass consumes PDF.js operator lists and recognizes simple, axis-aligned closed rectangles and long horizontal paths. It proposes square checkbox candidates and rectangular/underline text-field candidates, and may attach a nearby extractable PDF text fragment as a label. It does not recognize arbitrary artwork, rotated/curved boxes, or text embedded in scanned images. Suggestions can be false positives (for example, table cells) and are not confirmed fields until reviewed by the user.
+
+## Recently completed: preview quality and workspace usability
+
+- [x] Adaptive high-density PDF canvas rendering with explicit canvas memory limits.
+- [x] Keep PDF field overlays aligned to logical page coordinates at higher render scales.
+- [x] Replace the long document-editing page with a fixed-height desktop workspace and focused inspector tabs.
+- [x] Provide a responsive mobile layout without horizontal overflow.
+- [x] Verify two-page navigation, canvas/overlay alignment, tab switching, language changes, and contained scrolling with a browser-driven synthetic PDF check.
